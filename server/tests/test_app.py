@@ -1,4 +1,4 @@
-"""Tests for the converter API with a fake Audiveris, so they run without Java."""
+"""Tests for the local converter server with a fake Audiveris, so they run without Java."""
 
 import importlib
 import io
@@ -40,8 +40,11 @@ def client_for(tmp_path, monkeypatch):
         for k, v in env.items():
             monkeypatch.setenv(k, v)
         import app
+        import convert
 
-        importlib.reload(app)
+        # convert reads the settings from the environment; app builds a fresh backend.
+        for module in (convert, app):
+            importlib.reload(module)
         client = TestClient(app.app)
         client.__enter__()  # runs the lifespan, which starts the worker
         clients.append(client)

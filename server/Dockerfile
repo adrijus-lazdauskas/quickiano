@@ -1,5 +1,6 @@
-# Quickiano PDF converter: Audiveris (optical music recognition) behind a tiny HTTP API.
-# Built and run by Hugging Face Spaces (Docker SDK, free CPU), see README.md.
+# Quickiano PDF converter as one self-hosted server: Audiveris behind the job API (app.py).
+# The public converter runs on Modal instead (modal_app.py); this image is for running it yourself.
+# docker build -t quickiano-converter . && docker run -p 7860:7860 quickiano-converter
 FROM ubuntu:24.04
 
 ARG AUDIVERIS_VERSION=5.11.0
@@ -24,7 +25,7 @@ RUN mkdir -p /opt/tessdata \
 ENV TESSDATA_PREFIX=/opt/tessdata \
     JAVA_TOOL_OPTIONS="-Djava.awt.headless=true -Xmx8g"
 
-# Spaces run the container as uid 1000; Ubuntu's default user already has that id.
+# Run as an unprivileged user; Ubuntu's default user already has uid 1000.
 RUN userdel -r ubuntu && useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user
@@ -32,7 +33,7 @@ WORKDIR /home/user/app
 
 COPY --chown=user requirements.txt .
 RUN python3 -m venv /home/user/venv && /home/user/venv/bin/pip install --no-cache-dir -r requirements.txt
-COPY --chown=user app.py .
+COPY --chown=user app.py api.py convert.py ./
 
 EXPOSE 7860
 CMD ["/home/user/venv/bin/uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
