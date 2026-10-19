@@ -214,21 +214,24 @@ export class KeyboardView {
       const drawBadge = (m: number, mark: KeyMark, on: boolean) => {
         if (mark.finger == null) return;
         const x = L.center(m);
+        // Black keys carry their badge on the key tip, so it never collides with a white neighbour's.
+        const black = L.get(m)?.black;
+        const y = black ? bh - r - 5 : cy;
         g.beginPath();
-        g.arc(x, cy, r, 0, Math.PI * 2);
+        g.arc(x, y, r, 0, Math.PI * 2);
         if (on) {
           g.fillStyle = rgba(mark.color);
           g.fill();
           g.fillStyle = luminance(mark.color) > 0.62 ? "#0b0b12" : "#ffffff";
         } else {
-          g.fillStyle = "rgba(255,255,255,0.04)";
+          g.fillStyle = black ? "rgba(10,10,16,0.85)" : "rgba(255,255,255,0.04)";
           g.fill();
           g.strokeStyle = rgba(mark.color, 0.55);
           g.lineWidth = 1.5;
           g.stroke();
           g.fillStyle = rgba(shade(mark.color, 0.3), 0.75);
         }
-        g.fillText(String(mark.finger), x, cy + 0.5);
+        g.fillText(String(mark.finger), x, y + 0.5);
       };
       for (const [m, mark] of f.upcoming) if (!f.active.has(m)) drawBadge(m, mark, false);
       for (const [m, mark] of f.active) drawBadge(m, mark, true);
