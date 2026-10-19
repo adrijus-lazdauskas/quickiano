@@ -6,3 +6,8 @@ coverage
 # Scratch recordings and private test pieces never go into the repo
 recordings/
 private/
+
+# Python (converter service)
+.venv/
+__pycache__/
+.pytest_cache/
