@@ -1,0 +1,78 @@
+name: Converter
+
+# Tests the PDF converter in server/ and deploys it to a Hugging Face Space.
+# One-time setup in this repo (Settings → Secrets and variables → Actions):
+#   secret   HF_TOKEN  a Hugging Face access token with write permission
+#   variable HF_SPACE  the Space id, e.g. your-name/quickiano-converter
+# Without HF_SPACE the deploy job is skipped and only the tests run.
+on:
+  push:
+    branches: [main]
+    paths: ["server/**", ".github/workflows/converter.yml"]
+  pull_request:
+    paths: ["server/**", ".github/workflows/converter.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: converter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/requirements-dev.txt
+
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+
+  deploy:
+    name: Deploy to Hugging Face
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.HF_SPACE != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - run: pip install huggingface_hub==2.2.0
+
+      - name: Upload server/ to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+          SHA: ${{ github.sha }}
+        run: |
+          python - <<'EOF'
+          import os
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          space = os.environ["HF_SPACE"]
+          # Creates the Space on the first run (free CPU hardware), then just updates it.
+          api.create_repo(space, repo_type="space", space_sdk="docker", exist_ok=True)
+          api.upload_folder(
+              repo_id=space,
+              repo_type="space",
+              folder_path="server",
+              ignore_patterns=["tests/*", "requirements-dev.txt", "__pycache__/*", "*.pyc"],
+              commit_message=f"Deploy quickiano@{os.environ['SHA'][:7]}",
+          )
+          print(f"Deployed to https://huggingface.co/spaces/{space}")
+          EOF
