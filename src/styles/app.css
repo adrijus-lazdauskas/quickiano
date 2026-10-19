@@ -622,7 +622,7 @@ a {
   font-weight: 650;
   font-size: 0.9rem;
   white-space: nowrap;
-  min-width: 11.5rem;
+  min-width: 7.6rem;
 }
 input[type="range"] {
   --fill: 30%;

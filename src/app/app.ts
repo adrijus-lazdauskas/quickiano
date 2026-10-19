@@ -396,9 +396,10 @@ export class App {
     const st = this.settings.get();
     const target = this.score?.tempo || 0;
     let txt = st.bpm + " " + S.bpm;
-    if (target)
-      txt += st.bpm >= target ? " · " + S.atTarget : " · " + S.ofTarget(Math.round((st.bpm / target) * 100));
-    $("bpmOut").textContent = txt;
+    if (target) txt += " · " + S.ofTarget(Math.round((st.bpm / target) * 100));
+    const out = $("bpmOut");
+    out.textContent = txt;
+    out.title = target ? S.tempoTitle(target) : "";
     const input = $<HTMLInputElement>("bpm");
     const pct = ((st.bpm - +input.min) / (+input.max - +input.min)) * 100;
     input.style.setProperty("--fill", pct + "%");
