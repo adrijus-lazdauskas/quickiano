@@ -1,0 +1,43 @@
+{
+  "name": "quickiano",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Learn a piano song fast: drop in sheet music and play along with falling notes or the score.",
+  "license": "MIT",
+  "author": "Adrijus Lazdauskas",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adrijus-lazdauskas/quickiano.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@tonejs/midi": "^2.0.28",
+    "opensheetmusicdisplay": "^2.2.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.5",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "jsdom": "^30.1.3",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
+  }
+}

@@ -1,0 +1,8 @@
+node_modules
+dist
+*.local
+.DS_Store
+coverage
+# Scratch recordings and private test pieces never go into the repo
+recordings/
+private/
