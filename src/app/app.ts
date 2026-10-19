@@ -4,6 +4,7 @@ import { computeFingering, type FingerOverrides, tieHead } from "../core/fingeri
 import { isMidi, parseMidi } from "../core/midi";
 import { bytesToScoreText, hashBytes, hashText } from "../core/mxl";
 import { parseMusicXML } from "../core/musicxml";
+import { titleFromFileName, UNTITLED } from "../core/score";
 import { fullName, keyName, pitchName, soundingSpelling, spellMidi } from "../core/noteNames";
 import type { Hand, Note, Score } from "../core/types";
 import { EPS } from "../core/types";
@@ -29,6 +30,7 @@ import {
   saveSong,
   type SongRecord,
 } from "./library";
+import { ConvertError, type ConvertStage, convertPdf, converterAvailable } from "./converter";
 import { PALETTES, type Settings, SettingsStore } from "./settings";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -94,6 +96,7 @@ export class App {
     this.bindControls();
     this.bindSettingsPanel();
     this.bindFiles();
+    this.bindPdf();
     this.bindKeys();
     this.settings.subscribe((s, changed) => this.applySettings(s, changed));
     this.applySettings(this.settings.get(), Object.keys(this.settings.get()) as (keyof Settings)[]);
@@ -130,7 +133,7 @@ export class App {
 
   private async openFile(file: File): Promise<void> {
     if (/\.pdf$/i.test(file.name)) {
-      $<HTMLDialogElement>("pdfDialog").showModal();
+      this.openPdfDialog(file);
       return;
     }
     try {
@@ -159,7 +162,7 @@ export class App {
       this.useScore(score, rec, "");
     } else {
       const text = await bytesToScoreText(buf);
-      const score = parseMusicXML(text);
+      const score = this.parseXml(text, fileName);
       rec = this.recordFor(score, hashText(text), fileName, "musicxml", text);
       this.useScore(score, rec, text);
     }
@@ -167,9 +170,92 @@ export class App {
     void this.paintRecent();
   }
 
+  /** Converted PDFs often carry no title; the file name is better than "Untitled". */
+  private parseXml(text: string, fileName: string): Score {
+    const score = parseMusicXML(text);
+    if (score.title === UNTITLED) score.title = titleFromFileName(fileName);
+    return score;
+  }
+
+  /* ---------- PDF conversion (opt-in beta) ---------- */
+
+  private pendingPdf: File | null = null;
+  private convertAbort: AbortController | null = null;
+  private convertTimer = 0;
+
+  private openPdfDialog(file?: File): void {
+    const dialog = $<HTMLDialogElement>("pdfDialog");
+    if (converterAvailable()) {
+      this.pendingPdf = file ?? null;
+      $("pdfGo").textContent = file ? S.pdfConvert(file.name) : S.pdfChoose;
+      $("pdfError").hidden = true;
+    }
+    if (!dialog.open) dialog.showModal();
+  }
+
+  private bindPdf(): void {
+    const dialog = $<HTMLDialogElement>("pdfDialog");
+    $("pdfBtn").addEventListener("click", () => this.openPdfDialog());
+    if (!converterAvailable()) return;
+    const input = $<HTMLInputElement>("pdfIn");
+    $("pdfGo").addEventListener("click", () => {
+      if (this.pendingPdf) void this.convert(this.pendingPdf);
+      else input.click();
+    });
+    // Picking a file right under the explanation is the consent; start straight away.
+    input.addEventListener("change", () => {
+      const f = input.files?.[0];
+      input.value = "";
+      if (f) void this.convert(f);
+    });
+    $("pdfCancel").addEventListener("click", () => this.convertAbort?.abort());
+    dialog.addEventListener("close", () => this.convertAbort?.abort());
+  }
+
+  private async convert(file: File): Promise<void> {
+    if (this.convertAbort) return;
+    this.unlockAudio();
+    const abort = new AbortController();
+    this.convertAbort = abort;
+    this.pendingPdf = file;
+    const started = Date.now();
+    const busy = (on: boolean) => {
+      $("pdfStart").hidden = on;
+      $("pdfBusy").hidden = !on;
+    };
+    const stage = (s: ConvertStage, ahead?: number) =>
+      ($("pdfStage").textContent = s === "queued" ? S.pdfQueued(ahead ?? 0) : S.pdfStage[s]);
+    $("pdfError").hidden = true;
+    busy(true);
+    stage("uploading");
+    $("pdfTimer").textContent = "";
+    this.convertTimer = window.setInterval(() => {
+      $("pdfTimer").textContent = S.seconds(Math.round((Date.now() - started) / 1000));
+    }, 1000);
+    try {
+      const res = await convertPdf(file, abort.signal, stage);
+      await this.openData(res.data, file.name);
+      this.pendingPdf = null;
+      $<HTMLDialogElement>("pdfDialog").close();
+      this.toast(S.convertDone(res.pages, res.movements));
+    } catch (e) {
+      if (!abort.signal.aborted) {
+        const err = $("pdfError");
+        err.textContent =
+          e instanceof ConvertError ? e.message : S.loadFailed + " " + ((e as Error).message || "");
+        err.hidden = false;
+      }
+    } finally {
+      clearInterval(this.convertTimer);
+      this.convertAbort = null;
+      busy(false);
+      $("pdfGo").textContent = this.pendingPdf ? S.pdfConvert(this.pendingPdf.name) : S.pdfChoose;
+    }
+  }
+
   private async openRecord(rec: SongRecord): Promise<void> {
     if (rec.kind === "midi") this.useScore(parseMidi(rec.data as ArrayBuffer, rec.fileName), rec, "");
-    else this.useScore(parseMusicXML(rec.data as string), rec, rec.data as string);
+    else this.useScore(this.parseXml(rec.data as string, rec.fileName), rec, rec.data as string);
     rec.openedAt = Date.now();
     await saveSong(rec);
   }
@@ -691,7 +777,6 @@ export class App {
       if (f) void this.openFile(f);
       input.value = "";
     });
-    $("pdfBtn").addEventListener("click", () => $<HTMLDialogElement>("pdfDialog").showModal());
     document.querySelectorAll<HTMLElement>("[data-demo]").forEach((b) =>
       b.addEventListener("click", () => {
         this.unlockAudio();

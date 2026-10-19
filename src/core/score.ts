@@ -17,6 +17,19 @@ export type MeasureDraft = Pick<
   | "change"
 >;
 
+/** Title used when a file names none. */
+export const UNTITLED = "Untitled";
+
+/** "La_Valse-dAmelie.pdf" → "La Valse dAmelie": a readable title from a file name. */
+export function titleFromFileName(name: string): string {
+  const t = name
+    .replace(/\.(pdf|mxl|musicxml|xml|mid|midi)$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return t || UNTITLED;
+}
+
 export interface ScoreDraft {
   title: string;
   composer: string;

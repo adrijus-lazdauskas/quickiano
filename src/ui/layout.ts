@@ -1,3 +1,4 @@
+import { converterAvailable } from "../app/converter";
 import { PALETTES } from "../app/settings";
 import { ICON } from "./icons";
 import { S } from "./strings";
@@ -5,8 +6,28 @@ import { S } from "./strings";
 const toggle = (id: string, label: string, icon = "") =>
   `<button type="button" class="chip-toggle" id="${id}" aria-pressed="false">${icon}<span>${label}</span></button>`;
 
+const manualSteps = () =>
+  `<p>${S.pdfIntro}</p><ol>${S.pdfSteps.map((s) => `<li>${s}</li>`).join("")}</ol><p>${S.pdfOutro}</p>`;
+
+const convertSection = () => `
+    <div class="convert">
+      <p>${S.pdfConvertIntro}</p>
+      <ul class="facts">${S.pdfFacts.map((f) => `<li>${f}</li>`).join("")}</ul>
+      <div class="convert-row" id="pdfStart">
+        <button type="button" class="btn btn-accent" id="pdfGo">${S.pdfChoose}</button>
+      </div>
+      <div class="convert-row" id="pdfBusy" hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="pdfStage" aria-live="polite"></span>
+        <span class="muted tnum" id="pdfTimer"></span>
+        <button type="button" class="link" id="pdfCancel">${S.cancel}</button>
+      </div>
+      <p class="convert-error" id="pdfError" role="alert" hidden></p>
+    </div>`;
+
 /** Builds the static page; everything dynamic is filled in by the app. */
 export function renderLayout(root: HTMLElement): void {
+  const conv = converterAvailable();
   root.innerHTML = `
 <div class="app" data-state="empty">
   <header class="topbar">
@@ -76,7 +97,7 @@ export function renderLayout(root: HTMLElement): void {
     <label class="dropzone" id="dropzone" for="fileIn">
       <span class="dz-icon">${ICON.music}</span>
       <strong>${S.dropTitle}</strong>
-      <span>${S.dropText}</span>
+      <span>${conv ? S.dropTextPdf : S.dropText}</span>
       <span class="btn btn-accent">${S.browse}</span>
     </label>
     <div class="demos">
@@ -139,11 +160,15 @@ export function renderLayout(root: HTMLElement): void {
   </aside>
 
   <dialog class="dialog" id="pdfDialog" aria-labelledby="pdfTitle">
-    <h2 id="pdfTitle">${S.pdfTitle}</h2>
-    <p>${S.pdfIntro}</p>
-    <ol>${S.pdfSteps.map((s) => `<li>${s}</li>`).join("")}</ol>
-    <p>${S.pdfOutro}</p>
-    <form method="dialog"><button class="btn btn-accent">${S.close}</button></form>
+    <h2 id="pdfTitle">${S.pdfTitle}${conv ? ` <span class="beta">${S.beta}</span>` : ""}</h2>
+    ${conv ? convertSection() : ""}
+    ${
+      conv
+        ? `<details class="manual"><summary>${S.pdfManualTitle}</summary>${manualSteps()}</details>`
+        : manualSteps()
+    }
+    <form method="dialog"><button class="btn btn-soft">${S.close}</button></form>
+    <input type="file" id="pdfIn" class="sr-only" accept=".pdf,application/pdf">
   </dialog>
 
   <input type="file" id="fileIn" class="sr-only" accept=".musicxml,.xml,.mxl,.mid,.midi,.pdf">

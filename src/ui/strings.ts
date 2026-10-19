@@ -8,16 +8,18 @@ export const S = {
   openSongHint: "MusicXML, MXL or MIDI",
   dropTitle: "Drop a song here",
   dropText: "MusicXML (.musicxml, .xml, .mxl) or MIDI (.mid)",
+  dropTextPdf: "MusicXML (.musicxml, .xml, .mxl), MIDI (.mid) or a PDF (beta)",
   browse: "Choose a file",
   dropOverlay: "Drop to open",
   tryDemo: "Or try a demo",
   recent: "Recent songs",
   removeRecent: "Remove from recent songs",
   onlyPdf: "Only have a PDF?",
-  footer: "Free and open source. Your files never leave your browser.",
+  footer: "Free and open source. Your songs stay in your browser.",
   sourceCode: "Source code",
 
-  pdfTitle: "Turn a PDF into MusicXML",
+  pdfTitle: "Open a PDF",
+  pdfManualTitle: "Turn a PDF into MusicXML yourself",
   pdfIntro:
     "Quickiano reads MusicXML, the open format every notation app can export. A PDF is just a picture of the notes, so it needs one conversion step first:",
   pdfSteps: [
@@ -26,6 +28,33 @@ export const S = {
     "Many scores on <strong>MuseScore.com</strong> and <strong>IMSLP</strong> can also be downloaded as MusicXML or MIDI directly.",
   ],
   pdfOutro: "Then drop the .mxl or .musicxml file into Quickiano.",
+  beta: "Beta",
+  pdfConvertIntro: "Quickiano can read printed sheet music for you and open it as a song.",
+  pdfFacts: [
+    "Your PDF is sent to Quickiano's free converter (Audiveris on Hugging Face), turned into MusicXML and deleted right away.",
+    "It usually takes one to four minutes, plus up to a minute if the converter was asleep. Up to 12 pages.",
+    "Clean printed scores work best. Recognition isn't perfect, so compare a few bars with your PDF.",
+    "Only convert sheet music you're allowed to use.",
+  ],
+  pdfChoose: "Choose a PDF",
+  pdfConvert: (name: string) => `Convert “${name}”`,
+  pdfStage: {
+    waking: "Waking up the converter (free servers sleep when nobody uses them) …",
+    uploading: "Sending your PDF …",
+    reading: "Reading the notes, this can take a few minutes …",
+  } as Record<string, string>,
+  pdfQueued: (ahead: number) =>
+    ahead > 0 ? `Waiting in line (${ahead} ahead of you) …` : "Starting the conversion …",
+  seconds: (s: number) => `${s} s`,
+  cancel: "Cancel",
+  convertUnreachable:
+    "The converter can't be reached right now. Try again in a minute, or convert the PDF yourself with the steps below.",
+  convertFailed: (status: number) =>
+    `The conversion failed (error ${status}). Try again, or convert the PDF yourself.`,
+  convertDone: (pages: number, movements: number) =>
+    `Converted ${pages === 1 ? "1 page" : `${pages} pages`} from your PDF.` +
+    (movements > 1 ? ` It held ${movements} pieces; this is the first one.` : "") +
+    " Recognition isn't perfect, so compare a few bars with the PDF.",
   close: "Close",
 
   settings: "Settings",

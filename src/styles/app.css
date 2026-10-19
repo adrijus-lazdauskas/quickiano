@@ -1080,6 +1080,73 @@ input[type="color"]::-webkit-color-swatch {
   justify-content: flex-end;
   margin-top: 1rem;
 }
+.beta {
+  display: inline-block;
+  vertical-align: 3px;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0b0b12;
+  background: linear-gradient(135deg, var(--rh), var(--lh));
+}
+.convert {
+  padding: 0.2rem 0 0.4rem;
+}
+.convert .facts {
+  margin: 0.6rem 0 1rem;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+.convert .facts li {
+  font-size: 0.86rem;
+}
+.convert-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  min-height: 2.5rem;
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+.spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid var(--surface-3);
+  border-top-color: var(--rh);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
+}
+.convert-error {
+  margin: 0.6rem 0 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  background: rgba(248, 113, 113, 0.08);
+  color: #fecaca !important;
+  font-size: 0.88rem;
+}
+.dialog details.manual {
+  margin-top: 0.8rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.7rem;
+}
+.dialog details.manual summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-2);
+}
 .toast {
   position: fixed;
   z-index: 30;
