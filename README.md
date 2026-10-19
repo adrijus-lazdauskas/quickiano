@@ -4,7 +4,7 @@
 
 # Quickiano
 
-**Learn any piano song, fast.** Drop in sheet music and play along with glowing falling notes or the real score. Slow it down, loop the hard bars, see every finger.
+**Learn any piano song, fast.** Drop in your sheet music, even a plain PDF, and play along with glowing falling notes or the real score. Slow it down, loop the hard bars, see every finger.
 
 [**Open Quickiano**](https://quickiano.pages.dev/) · free · no sign-up · runs in your browser
 
@@ -18,8 +18,9 @@
 
 ## Why
 
-YouTube piano tutorials are great until you need bar 23 at half speed, with the left hand only, ten times in a row. Quickiano turns any song file into that tutorial, and you are in control of it:
+YouTube piano tutorials are great until you need bar 23 at half speed, with the left hand only, ten times in a row. Quickiano turns your sheet music into that tutorial, and you are in control of it:
 
+- 📄 **Just drop a PDF**: Quickiano reads the notes from a printed sheet music PDF and opens it as a song (beta). MusicXML and MIDI work too.
 - 🎹 **Falling notes** like the videos you know, with neon glow and sparks, in sync with a real grand piano sound.
 - 🎼 **Sheet music** for the same bars, so you learn to read the notes while you play.
 - ✋ **Finger numbers** on every note and right under the keys, suggested automatically for both hands. Fingerings written in the score are kept, and you can change any finger with one key press.
@@ -29,12 +30,11 @@ YouTube piano tutorials are great until you need bar 23 at half speed, with the 
 - ⏱️ **Count-in and click** so you start on the beat.
 - 🔤 **Note names** in the system you learned: C D E F G A **B**, C D E F G A **H** (German), or **Do Re Mi**.
 - 🎨 **Your colours** for each hand, five presets or any colour you like.
-- 📄 **PDF to song (beta)**: drop a printed sheet music PDF and Quickiano's free converter reads the notes for you.
-- 🔒 **Private by design**: songs are read and stored in your own browser, with no account and no tracking. Only a PDF you choose to convert is sent to the converter, which deletes it right after.
+- 🔒 **Private by design**: songs are read and stored in your own browser, with no account and no tracking. Only PDFs leave your browser, to be read by the converter, which deletes them right after.
 
 ## How it works
 
-1. **Open** [Quickiano](https://quickiano.pages.dev/) and drop a MusicXML or MIDI file onto the page (or try one of the demos).
+1. **Open** [Quickiano](https://quickiano.pages.dev/) and drop your sheet music onto the page: a PDF, MusicXML or MIDI file (or try one of the demos). A PDF takes a minute or two to read; you can play a demo meanwhile.
 2. **Pick** the bars you want to practise and set a comfortable tempo.
 3. **Play** along. Speed up a little every time it feels easy.
 
@@ -42,9 +42,9 @@ Quickiano remembers your recent songs, the bars you were working on and every fi
 
 <img src="docs/sheet.png" alt="Sheet music view with finger numbers and note names, the keys used in the passage tinted on the keyboard" width="960">
 
-## Where do I get a song file?
+## Which files work?
 
-Quickiano reads **MusicXML** (`.musicxml`, `.xml`, compressed `.mxl`), **MIDI** (`.mid`) and, in beta, **PDF**. MusicXML is the open format every notation program exports; it gives you sheet music and falling notes. MIDI gives you falling notes.
+Quickiano opens **PDF** sheet music (beta), **MusicXML** (`.musicxml`, `.xml`, compressed `.mxl`) and **MIDI** (`.mid`). PDFs and MusicXML give you sheet music and falling notes; MIDI gives you falling notes.
 
 - **From a PDF:** just drop it into Quickiano (beta). It goes to Quickiano's free converter ([Audiveris](https://github.com/Audiveris/audiveris) running on [Modal](https://modal.com), code in [`server/`](server/)), which reads the notes and deletes the file right after; the song opens by itself when it's ready. It usually takes one to four minutes; clean printed scores work best, so compare a few bars with your PDF. Prefer to do it yourself: [MuseScore Studio](https://musescore.org) (_File → Import PDF_) or [Audiveris](https://audiveris.github.io/audiveris/) offline, then export MusicXML.
 - **Download:** many scores on [MuseScore.com](https://musescore.com) and public domain pieces on [IMSLP](https://imslp.org) come as MusicXML or MIDI.
