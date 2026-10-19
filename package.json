@@ -1,6 +1,6 @@
 {
   "name": "quickiano",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Learn a piano song fast: drop in sheet music and play along with falling notes or the score.",
   "license": "MIT",
