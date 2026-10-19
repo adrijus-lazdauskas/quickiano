@@ -55,13 +55,23 @@ jobs:
         env:
           ID: ${{ secrets.MODAL_TOKEN_ID }}
           SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          # only whether they exist as variables by mistake, never their values
+          ID_AS_VARIABLE: ${{ vars.MODAL_TOKEN_ID != '' }}
+          SECRET_AS_VARIABLE: ${{ vars.MODAL_TOKEN_SECRET != '' }}
         run: |
-          if [ -z "$ID" ] || [ -z "$SECRET" ]; then
-            echo "::notice title=Converter not deployed::Add the repository secrets MODAL_TOKEN_ID and MODAL_TOKEN_SECRET (Settings → Secrets and variables → Actions → Secrets) to deploy it."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
+          missing=""
+          [ -z "$ID" ] && missing="$missing MODAL_TOKEN_ID"
+          [ -z "$SECRET" ] && missing="$missing MODAL_TOKEN_SECRET"
+          if [ -z "$missing" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          hint="Add them under Settings → Secrets and variables → Actions → Secrets → Repository secrets. Environment secrets (for example of github-pages) are not visible to this job."
+          if [ "$ID_AS_VARIABLE" = "true" ] || [ "$SECRET_AS_VARIABLE" = "true" ]; then
+            hint="They were saved as variables: delete them in the Variables tab and add them in the Secrets tab instead."
+          fi
+          echo "::notice title=Converter not deployed::Missing repository secret(s):$missing. $hint"
+          echo "ready=false" >> "$GITHUB_OUTPUT"
 
       - if: steps.token.outputs.ready == 'true'
         uses: actions/setup-python@v7
