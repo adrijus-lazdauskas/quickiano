@@ -5,7 +5,7 @@ import { S } from "../ui/strings";
  * The address comes from VITE_CONVERTER_URL at build time, or the default below;
  * set VITE_CONVERTER_URL to an empty string to hide PDF conversion (only the manual steps show).
  */
-const DEFAULT_URL = "";
+const DEFAULT_URL = "https://adrijus-lazdauskas--quickiano-converter.modal.run";
 
 export const converterUrl = String(import.meta.env.VITE_CONVERTER_URL ?? DEFAULT_URL).replace(/\/+$/, "");
 
