@@ -18,17 +18,20 @@ AUDIVERIS_DEB = (
 
 app = modal.App("quickiano-converter")
 
-# Audiveris ships as a .deb with its own Java runtime. The OCR model must be the full
-# one from tesseract-ocr/tessdata, because Audiveris uses the legacy Tesseract engine.
+# Audiveris ships as a .deb with its own Java runtime. Its install script registers a desktop
+# menu entry, which fails on a server, so the package is only unpacked and its libraries are
+# installed by hand (its Depends list without xdg-utils). The OCR model must be the full one
+# from tesseract-ocr/tessdata, because Audiveris uses the legacy Tesseract engine.
+AUDIVERIS_LIBS = ["libasound2t64", "libbsd0", "libx11-6", "libxext6", "libxi6", "libxrender1", "libxtst6", "zlib1g"]
+
 worker_image = (
     modal.Image.from_registry("ubuntu:24.04", add_python="3.12")
-    .apt_install("ca-certificates", "curl", "fontconfig", "fonts-dejavu-core")
+    .apt_install("ca-certificates", "curl", "fontconfig", "fonts-dejavu-core", *AUDIVERIS_LIBS)
     .run_commands(
-        f"curl -fsSL -o /tmp/audiveris.deb {AUDIVERIS_DEB}",
-        "apt-get update && apt-get install -y --no-install-recommends /tmp/audiveris.deb"
-        " && rm -f /tmp/audiveris.deb && rm -rf /var/lib/apt/lists/*",
-        'bin="$(find /opt /usr -type f -name Audiveris -path "*/bin/*" | head -n 1)"'
-        ' && test -n "$bin" && ln -s "$bin" /usr/local/bin/audiveris',
+        f"curl -fsSL -o /tmp/audiveris.deb {AUDIVERIS_DEB}"
+        " && dpkg-deb -x /tmp/audiveris.deb / && rm -f /tmp/audiveris.deb"
+        " && test -x /opt/audiveris/bin/Audiveris"
+        " && ln -s /opt/audiveris/bin/Audiveris /usr/local/bin/audiveris",
         "mkdir -p /opt/tessdata && curl -fsSL -o /opt/tessdata/eng.traineddata"
         " https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata",
     )
