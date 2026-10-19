@@ -8,10 +8,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Audiveris ships as a .deb with its own Java runtime. Its install script registers a desktop
 # menu entry, which fails without a desktop, so the package is only unpacked and its libraries
-# (its Depends list without xdg-utils) are installed by hand. Fonts are needed for headless Java.
+# (its Depends list without xdg-utils, plus GTK 3, which it loads at start even in batch mode)
+# are installed by hand. Fonts are needed for headless Java.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl python3 python3-venv fontconfig fonts-dejavu-core \
-    libasound2t64 libbsd0 libx11-6 libxext6 libxi6 libxrender1 libxtst6 zlib1g \
+    libasound2t64 libbsd0 libgtk-3-0t64 libx11-6 libxext6 libxi6 libxrender1 libxtst6 zlib1g \
  && curl -fsSL -o /tmp/audiveris.deb \
     "https://github.com/Audiveris/audiveris/releases/download/${AUDIVERIS_VERSION}/Audiveris-${AUDIVERIS_VERSION}-ubuntu24.04-x86_64.deb" \
  && dpkg-deb -x /tmp/audiveris.deb / \

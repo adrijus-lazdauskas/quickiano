@@ -22,9 +22,20 @@ app = modal.App("quickiano-converter")
 
 # Audiveris ships as a .deb with its own Java runtime. Its install script registers a desktop
 # menu entry, which fails on a server, so the package is only unpacked and its libraries are
-# installed by hand (its Depends list without xdg-utils). The OCR model must be the full one
-# from tesseract-ocr/tessdata, because Audiveris uses the legacy Tesseract engine.
-AUDIVERIS_LIBS = ["libasound2t64", "libbsd0", "libx11-6", "libxext6", "libxi6", "libxrender1", "libxtst6", "zlib1g"]
+# installed by hand (its Depends list without xdg-utils, plus GTK 3, which it loads at start
+# even in batch mode). The OCR model must be the full one from tesseract-ocr/tessdata,
+# because Audiveris uses the legacy Tesseract engine.
+AUDIVERIS_LIBS = [
+    "libasound2t64",
+    "libbsd0",
+    "libgtk-3-0t64",
+    "libx11-6",
+    "libxext6",
+    "libxi6",
+    "libxrender1",
+    "libxtst6",
+    "zlib1g",
+]
 
 worker_image = (
     modal.Image.from_registry("ubuntu:24.04", add_python="3.12")
