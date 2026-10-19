@@ -5,7 +5,7 @@ import { bytesToScoreText, hashText } from "../src/core/mxl";
 const enc = new TextEncoder();
 
 async function deflateRaw(data: Uint8Array): Promise<Uint8Array> {
-  const stream = new Blob([data]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+  const stream = new Response(data as BodyInit).body!.pipeThrough(new CompressionStream("deflate-raw"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
@@ -54,7 +54,7 @@ async function zip(files: { name: string; text: string; deflate: boolean }[]): P
 
 describe("bytesToScoreText", () => {
   it("passes plain MusicXML through and strips a BOM", async () => {
-    const text = await bytesToScoreText(enc.encode("﻿<score-partwise/>").buffer as ArrayBuffer);
+    const text = await bytesToScoreText(enc.encode("\uFEFF<score-partwise/>").buffer as ArrayBuffer);
     expect(text).toBe("<score-partwise/>");
   });
 
