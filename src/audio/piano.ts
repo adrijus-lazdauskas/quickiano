@@ -16,7 +16,8 @@ const midiOf = (name: string) => {
 };
 
 const buffers = new Map<number, AudioBuffer>();
-let loading: Promise<void> | null = null;
+let fetched: Promise<[number, ArrayBuffer][]> | null = null;
+let decoding: Promise<void> | null = null;
 
 export type PianoState = "loading" | "ready" | "synth";
 let state: PianoState = "loading";
@@ -36,29 +37,44 @@ function setState(s: PianoState) {
   listeners.forEach((fn) => fn(s));
 }
 
-/** Fetches and decodes all samples once. Safe to call repeatedly. */
-export function loadPiano(baseUrl: string): Promise<void> {
-  if (loading) return loading;
+/** Starts downloading the samples; no AudioContext needed yet. */
+export function prefetchPiano(baseUrl: string): void {
+  fetched ??= Promise.all(
+    NAMES.map(async (name): Promise<[number, ArrayBuffer]> => {
+      const res = await fetch(baseUrl + name + ".mp3");
+      if (!res.ok) throw new Error("sample " + name + " " + res.status);
+      return [midiOf(name), await res.arrayBuffer()];
+    }),
+  );
+}
+
+/**
+ * Decodes the samples. Call it from the first user gesture, when the
+ * AudioContext may start. Safe to call repeatedly.
+ */
+export function activatePiano(): Promise<void> {
+  if (decoding) return decoding;
   const c = getContext();
-  if (!c) {
+  if (!c || !fetched) {
     setState("synth");
     return Promise.resolve();
   }
-  loading = Promise.all(
-    NAMES.map(async (name) => {
-      const res = await fetch(baseUrl + name + ".mp3");
-      if (!res.ok) throw new Error("sample " + name + " " + res.status);
-      const buf = await c.decodeAudioData(await res.arrayBuffer());
-      buffers.set(midiOf(name), buf);
-    }),
-  ).then(
-    () => setState("ready"),
-    (e) => {
-      console.warn("Piano samples unavailable, using the synth.", e);
-      setState("synth");
-    },
-  );
-  return loading;
+  decoding = fetched
+    .then((list) =>
+      Promise.all(
+        list.map(async ([midi, bytes]) => {
+          buffers.set(midi, await c.decodeAudioData(bytes));
+        }),
+      ),
+    )
+    .then(
+      () => setState("ready"),
+      (e) => {
+        console.warn("Piano samples unavailable, using the synth.", e);
+        setState("synth");
+      },
+    );
+  return decoding;
 }
 
 function nearestSample(midi: number): [number, AudioBuffer] | null {

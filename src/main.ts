@@ -1,2 +1,5 @@
-const app = document.getElementById("app");
-if (app) app.textContent = "Quickiano";
+import "@fontsource-variable/inter";
+import "./styles/app.css";
+import { App } from "./app/app";
+
+new App(document.getElementById("app")!);
