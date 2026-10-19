@@ -1,10 +1,10 @@
 name: Converter
 
-# Tests the PDF converter in server/ and deploys it to a Hugging Face Space.
-# One-time setup in this repo (Settings → Secrets and variables → Actions):
-#   secret   HF_TOKEN  a Hugging Face access token with write permission
-#   variable HF_SPACE  the Space id, e.g. your-name/quickiano-converter
-# Without HF_SPACE the deploy job is skipped and only the tests run.
+# Tests the PDF converter in server/ and deploys it to Modal (https://modal.com).
+# One-time setup in this repo (Settings → Secrets and variables → Actions → Secrets):
+#   MODAL_TOKEN_ID      from modal.com → Settings → API Tokens → New Token
+#   MODAL_TOKEN_SECRET  shown together with the token id
+# Without them the deploy job only leaves a notice.
 on:
   push:
     branches: [main]
@@ -40,70 +40,49 @@ jobs:
       - run: pytest -q
 
   deploy:
-    name: Deploy to Hugging Face
+    name: Deploy to Modal
     needs: test
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.HF_SPACE != ''
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v7
+      - name: Check the Modal token
+        id: token
+        env:
+          ID: ${{ secrets.MODAL_TOKEN_ID }}
+          SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: |
+          if [ -z "$ID" ] || [ -z "$SECRET" ]; then
+            echo "::notice title=Converter not deployed::Add the repository secrets MODAL_TOKEN_ID and MODAL_TOKEN_SECRET (Settings → Secrets and variables → Actions → Secrets) to deploy it."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.token.outputs.ready == 'true'
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - name: Check the Hugging Face token
+      - if: steps.token.outputs.ready == 'true'
+        run: pip install modal==1.6.2
+
+      - name: Deploy
+        if: steps.token.outputs.ready == 'true'
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          COLUMNS: "200"
         run: |
-          if [ -z "$HF_TOKEN" ]; then
-            echo "::error title=HF_TOKEN is missing::Add a repository secret named HF_TOKEN (Settings → Secrets and variables → Actions → Secrets → New repository secret) holding a Hugging Face token with write access."
+          set -o pipefail
+          if ! modal deploy modal_app.py 2>&1 | tee deploy.log; then
+            reason="$(grep -iE 'error|denied|invalid|limit|billing|payment' deploy.log | tail -n 1 | cut -c1-300)"
+            echo "::error title=Modal deploy failed::${reason:-see the log of this step}"
             exit 1
           fi
-
-      - run: pip install huggingface_hub==2.2.0
-
-      - name: Upload server/ to the Space
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE: ${{ vars.HF_SPACE }}
-          SHA: ${{ github.sha }}
-        run: |
-          python - <<'EOF'
-          import os
-          import sys
-
-          from huggingface_hub import HfApi
-          from huggingface_hub.errors import HfHubHTTPError
-
-          def fail(title, message):
-              print(f"::error title={title}::{message}")
-              sys.exit(1)
-
-          api = HfApi(token=os.environ["HF_TOKEN"])
-          space = os.environ["HF_SPACE"].strip()
-          try:
-              me = api.whoami()
-          except HfHubHTTPError as e:
-              fail("Hugging Face rejected the token", f"HF_TOKEN was not accepted ({str(e).splitlines()[0]}). Create a new token with write access and save it again as HF_TOKEN.")
-          token = me.get("auth", {}).get("accessToken", {})
-          print(f"Token of {me['name']}, role {token.get('role')}")
-          if space.split("/")[0] not in [me["name"], *[o["name"] for o in me.get("orgs", [])]]:
-              fail("HF_SPACE does not match the token", f"HF_SPACE is '{space}', but the token belongs to '{me['name']}'. Set HF_SPACE to {me['name']}/quickiano-converter.")
-          if token.get("role") == "read":
-              fail("The token is read-only", "Create a Hugging Face token with the type Write and save it again as HF_TOKEN.")
-          try:
-              # Creates the Space on the first run (free CPU hardware), then just updates it.
-              api.create_repo(space, repo_type="space", space_sdk="docker", exist_ok=True)
-              api.upload_folder(
-                  repo_id=space,
-                  repo_type="space",
-                  folder_path="server",
-                  ignore_patterns=["tests/*", "requirements-dev.txt", "__pycache__/*", "*.pyc"],
-                  commit_message=f"Deploy quickiano@{os.environ['SHA'][:7]}",
-              )
-          except HfHubHTTPError as e:
-              status = e.response.status_code if e.response is not None else "?"
-              hint = " A fine-grained token needs write access to your repositories (spaces)." if status in (401, 403) else ""
-              fail(f"Hugging Face answered {status}", f"{str(e).splitlines()[0]}{hint}")
-          print(f"Deployed to https://huggingface.co/spaces/{space}")
-          EOF
+          url="$(grep -oE 'https://[a-z0-9-]+--quickiano-converter\.modal\.run' deploy.log | head -n 1)"
+          echo "::notice title=Converter address::${url:-not found in the log}"
