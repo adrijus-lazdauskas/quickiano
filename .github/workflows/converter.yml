@@ -87,10 +87,12 @@ jobs:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
           COLUMNS: "200"
+          NO_COLOR: "1"
         run: |
           set -o pipefail
           if ! modal deploy modal_app.py 2>&1 | tee deploy.log; then
-            reason="$(grep -iE 'error|denied|invalid|limit|billing|payment' deploy.log | tail -n 1 | cut -c1-300)"
+            # Modal prints errors in a box; keep the text inside it on one line.
+            reason="$(sed -n '/Error/,$p' deploy.log | tr -d '│╭╮╰╯─' | tr -s ' \n' ' ' | cut -c1-600)"
             echo "::error title=Modal deploy failed::${reason:-see the log of this step}"
             exit 1
           fi
