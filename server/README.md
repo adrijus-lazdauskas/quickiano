@@ -16,10 +16,15 @@ A small service that turns a printed sheet music PDF into compressed MusicXML (`
 
 ## API
 
-- `GET /`: health check, `{"status": "ok", "busy": false, "waiting": 0, "maxPages": 12}`. Quickiano calls it first to wake a sleeping Space.
-- `POST /convert`: multipart form with a `file` field (the PDF). Returns the `.mxl` with the headers `X-Pages`, `X-Movements` (Audiveris exports one file per movement; the first one is returned) and `X-Seconds`. Errors come back as `{"detail": "…"}` with 413 (too big or too many pages), 415 (not a PDF), 422 (no music found), 429 (busy), 504 (took too long).
+A conversion can take minutes, so it runs as a job:
 
-One conversion runs at a time and up to four more may wait. Files are written to a temporary folder for the conversion only and deleted right after; the log keeps page counts and timings, nothing else.
+- `GET /`: health check, `{"status": "ok", "busy": false, "waiting": 0, "maxPages": 12}`. Quickiano calls it first to wake a sleeping Space.
+- `POST /jobs`: multipart form with a `file` field (the PDF). Answers `202` with `{"id": "…", "status": "queued", "ahead": 0, "pages": 4}`, or an error `{"detail": "…"}`: 413 (too big or too many pages), 415 (not a PDF), 422 (unreadable PDF), 429 (line is full).
+- `GET /jobs/{id}`: `status` is `queued` (with `ahead`), `running`, `done` or `failed` (with `error`).
+- `GET /jobs/{id}/result`: the `.mxl`, once. Headers `X-Pages`, `X-Movements` (Audiveris exports one file per movement; the first one is returned) and `X-Seconds`. The job is gone afterwards.
+- `DELETE /jobs/{id}`: cancels a waiting or running job.
+
+One job runs at a time and up to four more may wait. PDFs exist only in a temporary folder while their job runs; results are dropped once downloaded or after 15 minutes. The log keeps page counts and timings, nothing else.
 
 ## Settings (environment variables)
 
@@ -27,7 +32,7 @@ One conversion runs at a time and up to four more may wait. Files are written to
 | ----------------- | -------------------------- | -------------------------------------------------------- |
 | `MAX_PDF_MB`      | `20`                       | Largest accepted PDF                                     |
 | `MAX_PAGES`       | `12`                       | Most pages per PDF                                       |
-| `TIMEOUT_SECONDS` | `480`                      | Stop a conversion after this long                        |
+| `TIMEOUT_SECONDS` | `600`                      | Stop a conversion after this long                        |
 | `MAX_WAITING`     | `4`                        | Requests that may queue before the converter answers 429 |
 | `ALLOWED_ORIGINS` | Quickiano and local dev    | Comma-separated origins allowed by CORS                  |
 | `AUDIVERIS_BIN`   | `/usr/local/bin/audiveris` | Audiveris launcher                                       |
