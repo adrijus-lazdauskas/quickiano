@@ -51,6 +51,15 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Check the Hugging Face token
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error title=HF_TOKEN is missing::Add a repository secret named HF_TOKEN (Settings → Secrets and variables → Actions → Secrets → New repository secret) holding a Hugging Face token with write access."
+            exit 1
+          fi
+
       - run: pip install huggingface_hub==2.2.0
 
       - name: Upload server/ to the Space
