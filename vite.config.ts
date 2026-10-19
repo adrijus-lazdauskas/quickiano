@@ -1,15 +1,15 @@
 import { defineConfig } from "vitest/config";
 
 /*
- * Hosting: GitHub Pages serves the app under /quickiano/, the dev server under /.
- * Other hosts set the path and the public address at build time, e.g. on
- * Cloudflare Pages: BASE_PATH=/ SITE_URL=https://quickiano.pages.dev/
+ * Hosting: Cloudflare Pages builds main and serves the app at the root of
+ * https://quickiano.pages.dev/. Other hosts can set the path and the public
+ * address at build time, e.g. BASE_PATH=/quickiano/ SITE_URL=https://example.github.io/quickiano/
  */
-const BASE_PATH = process.env.BASE_PATH || "/quickiano/";
-const SITE_URL = process.env.SITE_URL || "https://adrijus-lazdauskas.github.io/quickiano/";
+const BASE_PATH = process.env.BASE_PATH || "/";
+const SITE_URL = process.env.SITE_URL || "https://quickiano.pages.dev/";
 
-export default defineConfig(({ command }) => ({
-  base: command === "build" ? BASE_PATH : "/",
+export default defineConfig(() => ({
+  base: BASE_PATH,
   plugins: [
     {
       // Link previews need absolute URLs, so index.html says __SITE_URL__ and gets the real address here.
