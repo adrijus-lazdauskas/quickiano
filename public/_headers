@@ -1,0 +1,7 @@
+# Cache rules for Cloudflare Pages (other hosts ignore this file).
+# Built assets have content hashes in their names, so they never change.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/samples/*
+  Cache-Control: public, max-age=2592000
