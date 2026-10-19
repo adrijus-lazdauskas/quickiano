@@ -6,7 +6,9 @@ conversion runs in its own container with Audiveris, which stops when it is done
 Containers only run, and cost credits, while someone converts a PDF.
 """
 
+import json
 import time
+from pathlib import Path
 
 import modal
 
@@ -53,20 +55,54 @@ web_image = (
 )
 
 
+WORKER = {"image": worker_image, "cpu": 2.0, "memory": 6144, "timeout": 900}
+
+
 # At most three conversions at once keeps the free monthly credits safe.
-@app.function(image=worker_image, cpu=2.0, memory=6144, timeout=900, max_containers=3)
+@app.function(**WORKER, max_containers=3)
 def transcribe(pdf: bytes, pages: int) -> dict:
-    from convert import ConversionError, convert_blocking
+    from convert import ConversionError, run_audiveris
 
     started = time.monotonic()
     try:
-        mxl, movements = convert_blocking(pdf)
+        result, tail = run_audiveris(pdf)
     except ConversionError as e:
-        print(f"failed pages={pages}", flush=True)
+        print(f"failed pages={pages} reason=timeout", flush=True)
         return {"ok": False, "error": str(e)}
     seconds = round(time.monotonic() - started)
+    if result is None:
+        # Only the exit code: the Audiveris log can contain text read from the user's sheet.
+        print(f"failed pages={pages} seconds={seconds} {tail.splitlines()[0]}", flush=True)
+        from convert import NO_MUSIC
+
+        return {"ok": False, "error": NO_MUSIC}
+    mxl, movements = result
     print(f"done pages={pages} movements={movements} seconds={seconds}", flush=True)
     return {"ok": True, "mxl": mxl, "pages": pages, "movements": movements, "seconds": seconds}
+
+
+@app.function(**WORKER)
+def selftest(pdf: bytes) -> dict:
+    """Converts a known public domain sheet (Für Elise) and reports what Audiveris said."""
+    from convert import run_audiveris
+
+    started = time.monotonic()
+    result, tail = run_audiveris(pdf, timeout=600)
+    report = {"ok": result is not None, "seconds": round(time.monotonic() - started), "log": tail}
+    if result:
+        report.update(bytes=len(result[0]), movements=result[1])
+    return report
+
+
+@app.local_entrypoint()
+def check():
+    """modal run modal_app.py::check — run by the Converter workflow after every deploy."""
+    pdf = (Path(__file__).parent / "tests" / "fixtures" / "fur-elise.pdf").read_bytes()
+    report = selftest.remote(pdf)
+    print("SELFTEST " + json.dumps({k: v for k, v in report.items() if k != "log"}))
+    if not report["ok"]:
+        print(report["log"])
+        raise SystemExit(1)
 
 
 @app.function(image=web_image, max_containers=1)

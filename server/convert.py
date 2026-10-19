@@ -56,21 +56,32 @@ def pick_result(out: Path) -> tuple[bytes, int]:
     return found[0].read_bytes(), len(found)
 
 
-def convert_blocking(pdf: bytes, timeout: int = TIMEOUT_SECONDS) -> tuple[bytes, int]:
-    """Runs Audiveris to the end; used where each conversion has its own container."""
+def run_audiveris(pdf: bytes, timeout: int = TIMEOUT_SECONDS) -> tuple[tuple[bytes, int] | None, str]:
+    """Runs Audiveris to the end. Returns (mxl, movements), or None when it read no music,
+    together with the tail of its log for diagnosis (never logged for user uploads)."""
     with tempfile.TemporaryDirectory(prefix="omr-") as tmp:
         src = Path(tmp) / "score.pdf"
         out = Path(tmp) / "out"
+        log = Path(tmp) / "audiveris.log"
         src.write_bytes(pdf)
         out.mkdir()
+        with log.open("wb") as f:
+            try:
+                proc = subprocess.run(
+                    audiveris_args(src, out), stdout=f, stderr=subprocess.STDOUT, timeout=timeout, check=False
+                )
+            except subprocess.TimeoutExpired:
+                raise ConversionError(TOO_LONG, 504)
+        tail = f"exit {proc.returncode}\n" + "\n".join(log.read_text(errors="replace").splitlines()[-40:])
         try:
-            subprocess.run(
-                audiveris_args(src, out),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=timeout,
-                check=False,
-            )
-        except subprocess.TimeoutExpired:
-            raise ConversionError(TOO_LONG, 504)
-        return pick_result(out)
+            return pick_result(out), tail
+        except ConversionError:
+            return None, tail
+
+
+def convert_blocking(pdf: bytes, timeout: int = TIMEOUT_SECONDS) -> tuple[bytes, int]:
+    """Runs Audiveris to the end; used where each conversion has its own container."""
+    result, _ = run_audiveris(pdf, timeout)
+    if result is None:
+        raise ConversionError(NO_MUSIC, 422)
+    return result

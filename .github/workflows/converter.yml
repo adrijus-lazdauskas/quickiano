@@ -98,3 +98,21 @@ jobs:
           fi
           url="$(grep -oE 'https://[a-z0-9-]+--quickiano-converter\.modal\.run' deploy.log | head -n 1 || true)"
           echo "::notice title=Converter address::${url:-https://<workspace>--quickiano-converter.modal.run}"
+
+      - name: Self-test on Modal
+        if: steps.token.outputs.ready == 'true'
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          COLUMNS: "200"
+          NO_COLOR: "1"
+        run: |
+          set -o pipefail
+          # Converts a public domain sheet (tests/fixtures/fur-elise.pdf) in the real container.
+          if modal run modal_app.py::check 2>&1 | tee selftest.log; then
+            echo "::notice title=Converter self-test passed::$(grep -o 'SELFTEST .*' selftest.log | tail -n 1 | cut -c10-)"
+          else
+            reason="$(grep -vE '^[[:space:]]*$' selftest.log | tail -n 25 | tr -d '│╭╮╰╯─' | tr -s ' \n' ' ' | cut -c1-1500)"
+            echo "::error title=Converter self-test failed::${reason:-see the log of this step}"
+            exit 1
+          fi
