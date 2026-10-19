@@ -30,7 +30,7 @@ import {
   saveSong,
   type SongRecord,
 } from "./library";
-import { ConvertError, type ConvertStage, convertPdf, converterAvailable } from "./converter";
+import { ConvertError, convertPdf, converterAvailable } from "./converter";
 import { PALETTES, type Settings, SettingsStore } from "./settings";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -133,7 +133,8 @@ export class App {
 
   private async openFile(file: File): Promise<void> {
     if (/\.pdf$/i.test(file.name)) {
-      this.openPdfDialog(file);
+      if (converterAvailable()) void this.convert(file);
+      else $<HTMLDialogElement>("pdfDialog").showModal();
       return;
     }
     try {
@@ -177,85 +178,120 @@ export class App {
     return score;
   }
 
-  /* ---------- PDF conversion (opt-in beta) ---------- */
+  /* ---------- PDF import (beta) ---------- */
 
-  private pendingPdf: File | null = null;
-  private convertAbort: AbortController | null = null;
-  private convertTimer = 0;
-
-  private openPdfDialog(file?: File): void {
-    const dialog = $<HTMLDialogElement>("pdfDialog");
-    if (converterAvailable()) {
-      this.pendingPdf = file ?? null;
-      $("pdfGo").textContent = file ? S.pdfConvert(file.name) : S.pdfChoose;
-      $("pdfError").hidden = true;
-    }
-    if (!dialog.open) dialog.showModal();
-  }
+  private conv: { file: File; abort: AbortController; started: number; timer: number } | null = null;
+  private lastPdf: File | null = null;
 
   private bindPdf(): void {
     const dialog = $<HTMLDialogElement>("pdfDialog");
-    $("pdfBtn").addEventListener("click", () => this.openPdfDialog());
+    $("pdfBtn").addEventListener("click", () => dialog.showModal());
     if (!converterAvailable()) return;
-    const input = $<HTMLInputElement>("pdfIn");
-    $("pdfGo").addEventListener("click", () => {
-      if (this.pendingPdf) void this.convert(this.pendingPdf);
-      else input.click();
+    $("cvCancel").addEventListener("click", () => this.cancelConvert());
+    $("cvDemo").addEventListener("click", () => void this.openDemo("fur-elise.musicxml"));
+    $("cvRetry").addEventListener("click", () => {
+      if (this.lastPdf) void this.convert(this.lastPdf);
     });
-    // Picking a file right under the explanation is the consent; start straight away.
-    input.addEventListener("change", () => {
-      const f = input.files?.[0];
-      input.value = "";
-      if (f) void this.convert(f);
+    $("cvManual").addEventListener("click", () => {
+      dialog.querySelector("details")?.setAttribute("open", "");
+      dialog.showModal();
     });
-    $("pdfCancel").addEventListener("click", () => this.convertAbort?.abort());
-    dialog.addEventListener("close", () => this.convertAbort?.abort());
+    $("cvBack").addEventListener("click", () => this.leaveConvertView());
+    $("convertPill").addEventListener("click", () => this.setState("converting"));
   }
 
+  /** Converts a PDF in the background; the song opens by itself if you are still waiting for it. */
   private async convert(file: File): Promise<void> {
-    if (this.convertAbort) return;
+    this.conv?.abort.abort(); // a new PDF replaces the one in progress
     this.unlockAudio();
-    const abort = new AbortController();
-    this.convertAbort = abort;
-    this.pendingPdf = file;
-    const started = Date.now();
-    const busy = (on: boolean) => {
-      $("pdfStart").hidden = on;
-      $("pdfBusy").hidden = !on;
+    this.transport.stop(false);
+    this.paintPlay();
+    const job = { file, abort: new AbortController(), started: Date.now(), timer: 0 };
+    this.conv = job;
+    this.lastPdf = file;
+    const name = titleFromFileName(file.name);
+    $("cvTitle").textContent = S.cvTitle;
+    $("cvFile").textContent = file.name;
+    $("cvRunning").hidden = false;
+    $("cvFailed").hidden = true;
+    document.querySelector(".cv-card")!.classList.remove("failed");
+    $("cvStage").textContent = S.pdfStage.uploading;
+    this.setState("converting");
+    const tick = () => {
+      const t = S.clock((Date.now() - job.started) / 1000);
+      $("cvTime").textContent = t;
+      $("pillText").textContent = S.pill(name, t);
     };
-    const stage = (s: ConvertStage, ahead?: number) =>
-      ($("pdfStage").textContent = s === "queued" ? S.pdfQueued(ahead ?? 0) : S.pdfStage[s]);
-    $("pdfError").hidden = true;
-    busy(true);
-    stage("uploading");
-    $("pdfTimer").textContent = "";
-    this.convertTimer = window.setInterval(() => {
-      $("pdfTimer").textContent = S.seconds(Math.round((Date.now() - started) / 1000));
-    }, 1000);
+    tick();
+    job.timer = window.setInterval(tick, 1000);
     try {
-      const res = await convertPdf(file, abort.signal, stage);
-      await this.openData(res.data, file.name);
-      this.pendingPdf = null;
-      $<HTMLDialogElement>("pdfDialog").close();
-      this.toast(S.convertDone(res.pages, res.movements));
+      const res = await convertPdf(file, job.abort.signal, (stage, ahead) => {
+        $("cvStage").textContent = stage === "queued" ? S.pdfQueued(ahead ?? 0) : S.pdfStage[stage];
+      });
+      if (this.conv !== job) return;
+      const waiting = this.state() === "converting";
+      this.finishConvert(job);
+      const open = async () => {
+        await this.openData(res.data, file.name);
+        this.toast(S.convertDone(res.pages, res.movements));
+      };
+      if (waiting) await open();
+      else
+        this.toast(S.readyToast(name), false, {
+          label: S.open,
+          run: () => open().catch((e) => this.toast(S.loadFailed + " " + ((e as Error).message || ""), true)),
+        });
     } catch (e) {
-      if (!abort.signal.aborted) {
-        const err = $("pdfError");
-        err.textContent =
-          e instanceof ConvertError ? e.message : S.loadFailed + " " + ((e as Error).message || "");
-        err.hidden = false;
+      if (this.conv !== job || job.abort.signal.aborted) return;
+      this.finishConvert(job);
+      const msg = e instanceof ConvertError ? e.message : S.loadFailed + " " + ((e as Error).message || "");
+      $("cvTitle").textContent = S.cvErrorTitle;
+      $("cvErrorText").textContent = msg;
+      $("cvRunning").hidden = true;
+      $("cvFailed").hidden = false;
+      document.querySelector(".cv-card")!.classList.add("failed");
+      if (this.state() !== "converting") {
+        this.toast(msg, true, { label: S.cvRetry, run: () => void this.convert(file) });
       }
-    } finally {
-      clearInterval(this.convertTimer);
-      this.convertAbort = null;
-      busy(false);
-      $("pdfGo").textContent = this.pendingPdf ? S.pdfConvert(this.pendingPdf.name) : S.pdfChoose;
     }
   }
 
+  private finishConvert(job: NonNullable<App["conv"]>): void {
+    clearInterval(job.timer);
+    if (this.conv === job) this.conv = null;
+    this.paintPill();
+  }
+
+  private cancelConvert(): void {
+    const job = this.conv;
+    if (!job) return;
+    job.abort.abort();
+    this.finishConvert(job);
+    this.leaveConvertView();
+  }
+
+  private leaveConvertView(): void {
+    this.setState(this.score ? "ready" : "empty");
+    void this.paintRecent();
+  }
+
+  private paintPill(): void {
+    $("convertPill").hidden = !this.conv || this.state() === "converting";
+  }
+
+  private state(): string {
+    return document.querySelector(".app")!.getAttribute("data-state") ?? "empty";
+  }
+
   private async openRecord(rec: SongRecord): Promise<void> {
-    if (rec.kind === "midi") this.useScore(parseMidi(rec.data as ArrayBuffer, rec.fileName), rec, "");
-    else this.useScore(this.parseXml(rec.data as string, rec.fileName), rec, rec.data as string);
+    const score =
+      rec.kind === "midi"
+        ? parseMidi(rec.data as ArrayBuffer, rec.fileName)
+        : this.parseXml(rec.data as string, rec.fileName);
+    this.useScore(score, rec, rec.kind === "midi" ? "" : (rec.data as string));
+    // Titles can improve when the parser does; keep the list in step.
+    rec.title = score.title;
+    rec.composer = score.composer;
     rec.openedAt = Date.now();
     await saveSong(rec);
   }
@@ -315,9 +351,10 @@ export class App {
     this.paintBpm();
   }
 
-  private setState(state: "empty" | "ready"): void {
+  private setState(state: "empty" | "ready" | "converting"): void {
     document.querySelector(".app")!.setAttribute("data-state", state);
     if (state === "ready") this.requestFrame();
+    this.paintPill();
   }
 
   private paintHeader(): void {
@@ -831,7 +868,8 @@ export class App {
       this.transport.stop(false);
       this.paintPlay();
       void this.paintRecent();
-      this.setState("empty");
+      // Home shows the conversion while one runs, the start screen otherwise.
+      this.setState(this.conv ? "converting" : "empty");
     });
   }
 
@@ -882,12 +920,21 @@ export class App {
     });
   }
 
-  private toast(msg: string, error = false): void {
+  private toast(msg: string, error = false, action?: { label: string; run: () => void }): void {
     const t = $("toast");
-    t.textContent = msg;
+    $("toastText").textContent = msg;
+    const btn = $<HTMLButtonElement>("toastAction");
+    btn.hidden = !action;
+    btn.onclick = action
+      ? () => {
+          t.hidden = true;
+          action.run();
+        }
+      : null;
+    if (action) btn.textContent = action.label;
     t.classList.toggle("error", error);
     t.hidden = false;
     clearTimeout(this.toastTimer);
-    this.toastTimer = window.setTimeout(() => (t.hidden = true), error ? 6000 : 3500);
+    this.toastTimer = window.setTimeout(() => (t.hidden = true), action ? 20000 : error ? 6000 : 4500);
   }
 }

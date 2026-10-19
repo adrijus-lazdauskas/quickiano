@@ -18,8 +18,10 @@ export const S = {
   footer: "Free and open source. Your songs stay in your browser.",
   sourceCode: "Source code",
 
-  pdfTitle: "Open a PDF",
-  pdfManualTitle: "Turn a PDF into MusicXML yourself",
+  pdfTitle: "Turn a PDF into MusicXML",
+  pdfInfoTitle: "How PDF import works",
+  pdfInfoLink: "How PDF import works",
+  pdfManualTitle: "Prefer to convert it yourself?",
   pdfIntro:
     "Quickiano reads MusicXML, the open format every notation app can export. A PDF is just a picture of the notes, so it needs one conversion step first:",
   pdfSteps: [
@@ -29,32 +31,40 @@ export const S = {
   ],
   pdfOutro: "Then drop the .mxl or .musicxml file into Quickiano.",
   beta: "Beta",
-  pdfConvertIntro: "Quickiano can read printed sheet music for you and open it as a song.",
   pdfFacts: [
-    "Your PDF is sent to Quickiano's free converter (Audiveris on Hugging Face), turned into MusicXML and deleted right away.",
+    "Quickiano sends your PDF to its free converter (Audiveris on Hugging Face), which reads the notes and deletes the PDF right after.",
     "It usually takes one to four minutes, plus up to a minute if the converter was asleep. Up to 12 pages.",
-    "Clean printed scores work best. Recognition isn't perfect, so compare a few bars with your PDF.",
-    "Only convert sheet music you're allowed to use.",
+    "Clean printed scores work best. Recognition isn't perfect, so compare a few bars with your sheet.",
+    "Only use sheet music you're allowed to use.",
   ],
-  pdfChoose: "Choose a PDF",
-  pdfConvert: (name: string) => `Convert “${name}”`,
+  dropNotePdf: "PDFs are read by Quickiano's free converter and deleted right after.",
   pdfStage: {
-    waking: "Waking up the converter (free servers sleep when nobody uses them) …",
+    waking: "Waking up the converter …",
     uploading: "Sending your PDF …",
-    reading: "Reading the notes, this can take a few minutes …",
+    reading: "Reading the notes …",
   } as Record<string, string>,
-  pdfQueued: (ahead: number) =>
-    ahead > 0 ? `Waiting in line (${ahead} ahead of you) …` : "Starting the conversion …",
-  seconds: (s: number) => `${s} s`,
+  pdfQueued: (ahead: number) => (ahead > 0 ? `Waiting in line, ${ahead} ahead of you …` : "Starting …"),
+  cvTitle: "Reading your sheet music",
+  cvErrorTitle: "That didn't work",
+  cvWait:
+    "This usually takes one to four minutes. Try a demo meanwhile, we'll tell you when your song is ready.",
+  cvDemo: "Try a demo meanwhile",
+  cvRetry: "Try again",
+  cvManual: "Convert it yourself",
+  cvBack: "Back",
   cancel: "Cancel",
+  clock: (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`,
+  pill: (name: string, time: string) => `${name} · ${time}`,
+  pillLabel: "Your PDF is being converted. Show progress",
+  readyToast: (title: string) => `“${title}” is ready.`,
+  open: "Open",
   convertUnreachable:
-    "The converter can't be reached right now. Try again in a minute, or convert the PDF yourself with the steps below.",
-  convertFailed: (status: number) =>
-    `The conversion failed (error ${status}). Try again, or convert the PDF yourself.`,
+    "The converter can't be reached right now. Please try again in a minute, or convert the PDF yourself.",
+  convertFailed: (status: number) => `The conversion failed (error ${status}). Please try again.`,
   convertDone: (pages: number, movements: number) =>
     `Converted ${pages === 1 ? "1 page" : `${pages} pages`} from your PDF.` +
     (movements > 1 ? ` It held ${movements} pieces; this is the first one.` : "") +
-    " Recognition isn't perfect, so compare a few bars with the PDF.",
+    " Recognition isn't perfect, so check a few bars against the sheet.",
   close: "Close",
 
   settings: "Settings",

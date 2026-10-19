@@ -9,22 +9,6 @@ const toggle = (id: string, label: string, icon = "") =>
 const manualSteps = () =>
   `<p>${S.pdfIntro}</p><ol>${S.pdfSteps.map((s) => `<li>${s}</li>`).join("")}</ol><p>${S.pdfOutro}</p>`;
 
-const convertSection = () => `
-    <div class="convert">
-      <p>${S.pdfConvertIntro}</p>
-      <ul class="facts">${S.pdfFacts.map((f) => `<li>${f}</li>`).join("")}</ul>
-      <div class="convert-row" id="pdfStart">
-        <button type="button" class="btn btn-accent" id="pdfGo">${S.pdfChoose}</button>
-      </div>
-      <div class="convert-row" id="pdfBusy" hidden>
-        <span class="spinner" aria-hidden="true"></span>
-        <span id="pdfStage" aria-live="polite"></span>
-        <span class="muted tnum" id="pdfTimer"></span>
-        <button type="button" class="link" id="pdfCancel">${S.cancel}</button>
-      </div>
-      <p class="convert-error" id="pdfError" role="alert" hidden></p>
-    </div>`;
-
 /** Builds the static page; everything dynamic is filled in by the app. */
 export function renderLayout(root: HTMLElement): void {
   const conv = converterAvailable();
@@ -37,6 +21,7 @@ export function renderLayout(root: HTMLElement): void {
       <p id="songMeta"></p>
     </div>
     <div class="top-actions">
+      <button type="button" class="convert-pill" id="convertPill" aria-label="${S.pillLabel}" hidden><span class="spinner" aria-hidden="true"></span><span id="pillText"></span></button>
       <button type="button" class="btn btn-soft" id="openBtn">${ICON.open}<span>${S.openSong}</span></button>
       <button type="button" class="icon-btn" id="settingsBtn" aria-label="${S.settings}" aria-expanded="false" aria-controls="settingsPanel">${ICON.settings}</button>
     </div>
@@ -109,8 +94,37 @@ export function renderLayout(root: HTMLElement): void {
       <h3>${S.recent}</h3>
       <ul id="recentList"></ul>
     </div>
-    <button type="button" class="link" id="pdfBtn">${S.onlyPdf}</button>
+    ${
+      conv
+        ? `<p class="pdf-note">${S.dropNotePdf} <button type="button" class="link" id="pdfBtn">${S.pdfInfoLink}</button></p>`
+        : `<button type="button" class="link" id="pdfBtn">${S.onlyPdf}</button>`
+    }
     <p class="foot">${S.footer} <a href="https://github.com/adrijus-lazdauskas/quickiano" target="_blank" rel="noopener">${ICON.github}${S.sourceCode}</a></p>
+  </section>
+
+  <section class="convert-view" id="convertView" aria-live="polite">
+    <div class="cv-card">
+      <div class="cv-notes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <h2 id="cvTitle"></h2>
+      <p class="cv-file" id="cvFile"></p>
+      <div id="cvRunning">
+        <div class="cv-bar" aria-hidden="true"><i></i></div>
+        <p class="cv-stage"><span id="cvStage"></span> <span class="tnum muted" id="cvTime"></span></p>
+        <div class="cv-actions">
+          <button type="button" class="btn btn-soft" id="cvDemo">${S.cvDemo}</button>
+          <button type="button" class="link" id="cvCancel">${S.cancel}</button>
+        </div>
+        <p class="cv-note">${S.cvWait}</p>
+      </div>
+      <div id="cvFailed" hidden>
+        <p class="cv-error" id="cvErrorText" role="alert"></p>
+        <div class="cv-actions">
+          <button type="button" class="btn btn-accent" id="cvRetry">${S.cvRetry}</button>
+          <button type="button" class="btn btn-soft" id="cvManual">${S.cvManual}</button>
+          <button type="button" class="link" id="cvBack">${S.cvBack}</button>
+        </div>
+      </div>
+    </div>
   </section>
 
   <aside class="panel" id="settingsPanel" aria-label="${S.settings}" hidden>
@@ -160,19 +174,18 @@ export function renderLayout(root: HTMLElement): void {
   </aside>
 
   <dialog class="dialog" id="pdfDialog" aria-labelledby="pdfTitle">
-    <h2 id="pdfTitle">${S.pdfTitle}${conv ? ` <span class="beta">${S.beta}</span>` : ""}</h2>
-    ${conv ? convertSection() : ""}
     ${
       conv
-        ? `<details class="manual"><summary>${S.pdfManualTitle}</summary>${manualSteps()}</details>`
-        : manualSteps()
+        ? `<h2 id="pdfTitle">${S.pdfInfoTitle} <span class="beta">${S.beta}</span></h2>
+    <ul class="facts">${S.pdfFacts.map((f) => `<li>${f}</li>`).join("")}</ul>
+    <details class="manual"><summary>${S.pdfManualTitle}</summary>${manualSteps()}</details>`
+        : `<h2 id="pdfTitle">${S.pdfTitle}</h2>${manualSteps()}`
     }
     <form method="dialog"><button class="btn btn-soft">${S.close}</button></form>
-    <input type="file" id="pdfIn" class="sr-only" accept=".pdf,application/pdf">
   </dialog>
 
   <input type="file" id="fileIn" class="sr-only" accept=".musicxml,.xml,.mxl,.mid,.midi,.pdf">
   <div class="drop-overlay" aria-hidden="true"><div>${ICON.open}<span>${S.dropOverlay}</span></div></div>
-  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toastText"></span><button type="button" class="toast-action" id="toastAction" hidden></button></div>
 </div>`;
 }

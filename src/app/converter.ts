@@ -3,7 +3,7 @@ import { S } from "../ui/strings";
 /**
  * Client for the optional PDF converter (Audiveris on a Hugging Face Space, see server/).
  * The address comes from VITE_CONVERTER_URL at build time, or the default below;
- * when both are empty the app hides PDF conversion and shows the manual steps only.
+ * set VITE_CONVERTER_URL to an empty string to hide PDF conversion (only the manual steps show).
  */
 const DEFAULT_URL = "";
 
