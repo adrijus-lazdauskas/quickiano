@@ -8,8 +8,8 @@
 
 [**Open Quickiano**](https://adrijus-lazdauskas.github.io/quickiano/) · free · no sign-up · runs in your browser
 
-[![CI](https://github.com/adrijus-lazdauskas/quickiano/actions/workflows/ci.yml/badge.svg)](https://github.com/adrijus-lazdauskas/quickiano/actions/workflows/ci.yml)
-[![Deploy](https://github.com/adrijus-lazdauskas/quickiano/actions/workflows/deploy.yml/badge.svg)](https://github.com/adrijus-lazdauskas/quickiano/actions/workflows/deploy.yml)
+[![CI](https://github.com/adrijus-lazdauskas/quickiano/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/adrijus-lazdauskas/quickiano/actions/workflows/ci.yml)
+[![Deploy](https://github.com/adrijus-lazdauskas/quickiano/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/adrijus-lazdauskas/quickiano/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-ff4fd8.svg)](LICENSE)
 
 <img src="docs/demo.gif" alt="Für Elise playing as glowing falling notes with finger numbers under the keys" width="960">
