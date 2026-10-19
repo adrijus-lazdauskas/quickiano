@@ -121,6 +121,21 @@ describe("parseMusicXML", () => {
     expect(parseMusicXML(xml).tempo).toBe(80);
   });
 
+  it("does not take a 'Composed by' line as the title", () => {
+    const xml = pianoXML('<measure number="1">' + note("C5", 16, 1) + backup(16) + rest(16, 2) + "</measure>")
+      .replace(/<work>.*?<\/work>/, "<movement-title>Composed by Yann Tiersen</movement-title>")
+      .replace(/<identification>.*?<\/identification>/, "")
+      .replace(
+        "<part-list>",
+        '<credit page="1"><credit-words font-size="20">Comptine d\u2019un autre été</credit-words></credit>' +
+          '<credit page="1"><credit-words font-size="14">Composed by Yann Tiersen</credit-words></credit>' +
+          '<credit page="1"><credit-words font-size="7">5</credit-words></credit><part-list>',
+      );
+    const s = parseMusicXML(xml);
+    expect(s.title).toBe("Comptine d\u2019un autre été");
+    expect(s.composer).toBe("Yann Tiersen");
+  });
+
   it("rejects files that are not MusicXML", () => {
     expect(() => parseMusicXML("<html></html>")).toThrow(/not a MusicXML score/);
     expect(() => parseMusicXML("garbage <")).toThrow(/not valid MusicXML/);

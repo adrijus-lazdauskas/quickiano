@@ -1,4 +1,4 @@
-import { finalizeScore, type MeasureDraft } from "./score";
+import { finalizeScore, type MeasureDraft, UNTITLED } from "./score";
 import type { Hand, RawNote, Score, Step } from "./types";
 import { EPS } from "./types";
 
@@ -41,6 +41,9 @@ interface PartMeasure {
 }
 
 const isStep = (s: string): s is Step => s in STEP_PC;
+
+/** "Composed by", "Music by", "Arr. by", "By" … at the start of a credit line. */
+const BYLINE = /^(?:(?:composed|written|music|words|lyrics|arranged|arr\.?|transcribed)\s+(?:by\s+)?|by\s+)/i;
 
 function parsePart(partEl: Element, pi: number, staffMap: Record<string, Hand>): PartMeasure[] {
   let divisions = 1;
@@ -225,7 +228,22 @@ export function parseMusicXML(text: string): Score {
   if (root.nodeName !== "score-partwise") throw new Error("This is not a MusicXML score.");
 
   const work = kid(root, "work");
-  let title = (work && kidText(work, "work-title")) || kidText(root, "movement-title");
+  const credits = Array.from(root.getElementsByTagName("credit"))
+    .filter((c) => (c.getAttribute("page") || "1") === "1")
+    .flatMap((c) => Array.from(c.getElementsByTagName("credit-words")))
+    .map((c) => ({
+      text: c.textContent?.replace(/\s+/g, " ").trim() ?? "",
+      size: parseFloat(c.getAttribute("font-size") || "") || 0,
+      just: c.getAttribute("justify") || c.getAttribute("halign") || "",
+    }))
+    .filter((c) => c.text.length > 1 && !/^\d+$/.test(c.text));
+  // Recognised scores (Audiveris) sometimes call the "Composed by …" line the title.
+  const usable = (t: string) => (t && !BYLINE.test(t) ? t : "");
+  let title =
+    usable((work && kidText(work, "work-title")) || "") ||
+    usable(kidText(root, "movement-title")) ||
+    credits.filter((c) => usable(c.text)).sort((a, b) => b.size - a.size)[0]?.text ||
+    "";
   let composer = "";
   const ident = kid(root, "identification");
   if (ident) {
@@ -233,15 +251,12 @@ export function parseMusicXML(text: string): Score {
       if (c.getAttribute("type") === "composer") composer = c.textContent?.trim() ?? "";
     }
   }
-  const credits = Array.from(root.getElementsByTagName("credit-words"))
-    .map((c) => ({
-      text: c.textContent?.trim() ?? "",
-      size: parseFloat(c.getAttribute("font-size") || "") || 0,
-      just: c.getAttribute("justify") || c.getAttribute("halign") || "",
-    }))
-    .filter((c) => c.text);
-  if (!title && credits.length) title = credits.slice().sort((a, b) => b.size - a.size)[0].text;
-  if (!composer) composer = credits.find((c) => c.just === "right")?.text ?? "";
+  if (!composer) {
+    composer =
+      credits.find((c) => BYLINE.test(c.text))?.text ?? credits.find((c) => c.just === "right")?.text ?? "";
+  }
+  composer = composer.replace(BYLINE, "").trim();
+  title = title.replace(/\s+/g, " ").trim();
 
   const partEls = kids(root, "part");
   if (!partEls.length) throw new Error("This file has no parts.");
@@ -323,7 +338,7 @@ export function parseMusicXML(text: string): Score {
   }
 
   return finalizeScore({
-    title: title || "Untitled",
+    title: title || UNTITLED,
     composer,
     source: "musicxml",
     measures,
