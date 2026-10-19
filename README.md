@@ -6,10 +6,10 @@
 
 **Learn any piano song, fast.** Drop in sheet music and play along with glowing falling notes or the real score. Slow it down, loop the hard bars, see every finger.
 
-[**Open Quickiano**](https://adrijus-lazdauskas.github.io/quickiano/) · free · no sign-up · runs in your browser
+[**Open Quickiano**](https://quickiano.pages.dev/) · free · no sign-up · runs in your browser
 
 [![CI](https://github.com/adrijus-lazdauskas/quickiano/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/adrijus-lazdauskas/quickiano/actions/workflows/ci.yml)
-[![Deploy](https://github.com/adrijus-lazdauskas/quickiano/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/adrijus-lazdauskas/quickiano/actions/workflows/deploy.yml)
+[![Website](https://img.shields.io/website?url=https%3A%2F%2Fquickiano.pages.dev&label=quickiano.pages.dev)](https://quickiano.pages.dev/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-ff4fd8.svg)](LICENSE)
 
 <img src="docs/demo.gif" alt="Für Elise playing as glowing falling notes with finger numbers under the keys" width="960">
@@ -33,7 +33,7 @@ YouTube piano tutorials are great until you need bar 23 at half speed, with the 
 
 ## How it works
 
-1. **Open** [Quickiano](https://adrijus-lazdauskas.github.io/quickiano/) and drop a MusicXML or MIDI file onto the page (or try one of the demos).
+1. **Open** [Quickiano](https://quickiano.pages.dev/) and drop a MusicXML or MIDI file onto the page (or try one of the demos).
 2. **Pick** the bars you want to practise and set a comfortable tempo.
 3. **Play** along. Speed up a little every time it feels easy.
 
@@ -75,6 +75,8 @@ npm run dev
 ```
 
 Then open the address Vite prints (usually http://localhost:5173).
+
+The live site is built by Cloudflare Pages from `main`. To host it somewhere else, set `BASE_PATH` (the folder it is served from, default `/`) and `SITE_URL` (its public address, used for link previews) when building, e.g. `BASE_PATH=/quickiano/ SITE_URL=https://you.github.io/quickiano/ npm run build`.
 
 | Command          | What it does                                                                            |
 | ---------------- | --------------------------------------------------------------------------------------- |
