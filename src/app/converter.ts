@@ -1,7 +1,7 @@
 import { S } from "../ui/strings";
 
 /**
- * Client for the optional PDF converter (Audiveris on a Hugging Face Space, see server/).
+ * Client for the optional PDF converter (Audiveris on Modal, see server/).
  * The address comes from VITE_CONVERTER_URL at build time, or the default below;
  * set VITE_CONVERTER_URL to an empty string to hide PDF conversion (only the manual steps show).
  */

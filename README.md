@@ -46,7 +46,7 @@ Quickiano remembers your recent songs, the bars you were working on and every fi
 
 Quickiano reads **MusicXML** (`.musicxml`, `.xml`, compressed `.mxl`), **MIDI** (`.mid`) and, in beta, **PDF**. MusicXML is the open format every notation program exports; it gives you sheet music and falling notes. MIDI gives you falling notes.
 
-- **From a PDF:** drop it into Quickiano and click _Convert_ (beta). The PDF goes to Quickiano's free converter ([Audiveris](https://github.com/Audiveris/audiveris) on a Hugging Face Space, code in [`server/`](server/)), which reads the notes and deletes the file right after. It usually takes one to four minutes; clean printed scores work best, so compare a few bars with your PDF. Prefer to do it yourself: [MuseScore Studio](https://musescore.org) (_File → Import PDF_) or [Audiveris](https://audiveris.github.io/audiveris/) offline, then export MusicXML.
+- **From a PDF:** just drop it into Quickiano (beta). It goes to Quickiano's free converter ([Audiveris](https://github.com/Audiveris/audiveris) running on [Modal](https://modal.com), code in [`server/`](server/)), which reads the notes and deletes the file right after; the song opens by itself when it's ready. It usually takes one to four minutes; clean printed scores work best, so compare a few bars with your PDF. Prefer to do it yourself: [MuseScore Studio](https://musescore.org) (_File → Import PDF_) or [Audiveris](https://audiveris.github.io/audiveris/) offline, then export MusicXML.
 - **Download:** many scores on [MuseScore.com](https://musescore.com) and public domain pieces on [IMSLP](https://imslp.org) come as MusicXML or MIDI.
 - **Write it yourself:** any notation app (MuseScore, Dorico, Sibelius, Finale, Flat.io, Noteflight) can export MusicXML.
 
@@ -96,7 +96,7 @@ Plain TypeScript and Vite, no UI framework. The interesting parts:
 - [`src/core/fingering.ts`](src/core/fingering.ts) suggests fingers with dynamic programming over a finger-span comfort table, for each hand. Fingers from the score and your own changes steer the notes around them.
 - [`src/player/transport.ts`](src/player/transport.ts) schedules notes ahead on the Web Audio clock, so timing stays tight even when the screen is busy.
 - [`src/views/falling.ts`](src/views/falling.ts) and [`src/views/effects.ts`](src/views/effects.ts) draw the falling notes and particles on a canvas; [`src/views/sheet.ts`](src/views/sheet.ts) renders the score with OpenSheetMusicDisplay and adds its own finger and note-name layer.
-- [`server/`](server/) is the optional PDF converter: a small FastAPI service around Audiveris that runs conversions as jobs, deployed to a free Hugging Face Space by the `Converter` workflow.
+- [`server/`](server/) is the optional PDF converter: a small FastAPI service around Audiveris that runs conversions as jobs, deployed to [Modal](https://modal.com) by the `Converter` workflow (one container per conversion, so it only costs anything while it runs).
 
 ## Contributing
 
