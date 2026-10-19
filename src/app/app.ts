@@ -216,6 +216,7 @@ export class App {
 
     this.paintHeader();
     this.buildTimeline();
+    $("sheetHint").hidden = this.settings.get().view !== "sheet" || score.source === "midi";
     const saved = loadRange(rec.id);
     const M = score.measures;
     if (saved && saved[0] >= 0 && saved[1] < M.length && saved[0] <= saved[1])
@@ -599,7 +600,7 @@ export class App {
       }
       this.falling.el.hidden = s.view !== "falling";
       this.sheet.el.hidden = s.view !== "sheet";
-      $("sheetHint").hidden = s.view !== "sheet";
+      $("sheetHint").hidden = s.view !== "sheet" || this.score?.source === "midi";
       if (s.view !== "sheet") this.onPick(null);
       document.querySelector(".app")!.setAttribute("data-view", s.view);
       if (s.view === "sheet" && this.score) void this.showSheet();
