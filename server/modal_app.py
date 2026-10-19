@@ -74,7 +74,7 @@ def transcribe(pdf: bytes, pages: int) -> dict:
 @modal.asgi_app(label="quickiano-converter")
 def web():
     from api import create_api
-    from modal_backend import ModalBackend
+    from modal_backend import ModalBackend, make_classifier
 
     async def submit(pdf: bytes, pages: int) -> str:
         call = await transcribe.spawn.aio(pdf, pages)
@@ -88,13 +88,11 @@ def web():
         call = await modal.FunctionCall.from_id.aio(job_id)
         await call.cancel.aio(terminate_containers=True)
 
-    def classify(e: Exception):
-        if isinstance(e, (modal.exception.OutputExpiredError, modal.exception.NotFoundError)):
-            return "expired"
-        # get(timeout=0) on an unfinished call raises the plain Modal TimeoutError;
-        # its subclasses mean the function itself timed out or failed.
-        if type(e) is modal.exception.TimeoutError:
-            return "running"
-        return "failed"
+    # Polling an unfinished call raises Python's TimeoutError (Modal 1.6); older clients
+    # raised Modal's own TimeoutError. Its subclasses mean the function timed out or expired.
+    classify = make_classifier(
+        running=(TimeoutError, modal.exception.TimeoutError),
+        expired=(modal.exception.OutputExpiredError, modal.exception.NotFoundError),
+    )
 
     return create_api(ModalBackend(submit=submit, poll=poll, stop=stop, classify=classify))

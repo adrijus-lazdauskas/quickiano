@@ -5,6 +5,7 @@ the real calls. Modal keeps a call's result for a while, so polling is just aski
 the call for its output without waiting.
 """
 
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any, Literal
 
@@ -13,6 +14,23 @@ from api import NotFinished, Unknown
 UNEXPECTED = "The conversion failed unexpectedly. Please try again."
 
 Kind = Literal["running", "expired", "failed"]
+
+# Right after spawning, Modal can briefly know neither an output nor an unfinished input.
+GRACE_SECONDS = 60
+
+
+def make_classifier(running: tuple[type, ...], expired: tuple[type, ...]) -> Callable[[Exception], Kind]:
+    """Sorts the exceptions of polling a call. `running` types count only exactly, because
+    Modal derives "the function itself timed out" from its own TimeoutError."""
+
+    def classify(e: Exception) -> Kind:
+        if isinstance(e, expired):
+            return "expired"
+        if type(e) in running:
+            return "running"
+        return "failed"
+
+    return classify
 
 
 class ModalBackend:
@@ -27,12 +45,17 @@ class ModalBackend:
         self._poll = poll
         self._stop = stop
         self._classify = classify
+        self._spawned: dict[str, float] = {}
 
     def health(self) -> dict:
         return {"busy": False, "waiting": 0}
 
     async def submit(self, pdf: bytes, pages: int) -> str:
-        return await self._submit(pdf, pages)
+        job_id = await self._submit(pdf, pages)
+        now = time.monotonic()
+        self._spawned = {k: t for k, t in self._spawned.items() if now - t < GRACE_SECONDS}
+        self._spawned[job_id] = now
+        return job_id
 
     async def _output(self, job_id: str) -> dict[str, Any] | None:
         """The function's return value, or None while it still runs."""
@@ -40,7 +63,8 @@ class ModalBackend:
             return await self._poll(job_id)
         except Exception as e:
             kind = self._classify(e)
-            if kind == "running":
+            fresh = time.monotonic() - self._spawned.get(job_id, -GRACE_SECONDS) < GRACE_SECONDS
+            if kind == "running" or (kind == "expired" and fresh):
                 return None
             if kind == "expired":
                 raise Unknown()

@@ -11,7 +11,8 @@ from pypdf import PdfWriter
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api import create_api  # noqa: E402
-from modal_backend import ModalBackend  # noqa: E402
+import modal_backend  # noqa: E402
+from modal_backend import ModalBackend, make_classifier  # noqa: E402
 
 
 class NotReady(Exception):
@@ -128,3 +129,31 @@ def test_uploads_are_checked_before_spawning(setup):
     r = client.post("/jobs", files={"file": ("x.txt", b"hello", "text/plain")})
     assert r.status_code == 415
     assert fake.outputs == {}
+
+
+class FunctionTimedOut(NotReady):
+    """Like Modal's FunctionTimeoutError: a subclass of the "not ready" error that means failure."""
+
+
+def test_classifier_counts_only_exact_timeouts_as_running():
+    classify = make_classifier(running=(TimeoutError, NotReady), expired=(Expired,))
+    assert classify(TimeoutError()) == "running"
+    assert classify(NotReady()) == "running"
+    assert classify(FunctionTimedOut()) == "failed"
+    assert classify(Expired()) == "expired"
+    assert classify(RuntimeError()) == "failed"
+
+
+def test_a_fresh_job_is_not_reported_as_expired(setup):
+    fake, client = setup
+    job_id = upload(client).json()["id"]
+    fake.outputs[job_id] = Expired()
+    assert client.get(f"/jobs/{job_id}").json()["status"] == "running"
+
+
+def test_old_jobs_do_expire(setup, monkeypatch):
+    fake, client = setup
+    job_id = upload(client).json()["id"]
+    fake.outputs[job_id] = Expired()
+    monkeypatch.setattr(modal_backend, "GRACE_SECONDS", 0)
+    assert client.get(f"/jobs/{job_id}").status_code == 404

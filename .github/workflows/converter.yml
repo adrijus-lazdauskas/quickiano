@@ -96,5 +96,5 @@ jobs:
             echo "::error title=Modal deploy failed::${reason:-see the log of this step}"
             exit 1
           fi
-          url="$(grep -oE 'https://[a-z0-9-]+--quickiano-converter\.modal\.run' deploy.log | head -n 1)"
-          echo "::notice title=Converter address::${url:-not found in the log}"
+          url="$(grep -oE 'https://[a-z0-9-]+--quickiano-converter\.modal\.run' deploy.log | head -n 1 || true)"
+          echo "::notice title=Converter address::${url:-https://<workspace>--quickiano-converter.modal.run}"
