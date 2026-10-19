@@ -5,10 +5,9 @@ export const S = {
   heroText:
     "Drop in sheet music and play along with falling notes or the score. Slow it down, loop the hard bars, see every finger.",
   openSong: "Open song",
-  openSongHint: "MusicXML, MXL or MIDI",
-  dropTitle: "Drop a song here",
+  dropTitle: "Drop your sheet music here",
   dropText: "MusicXML (.musicxml, .xml, .mxl) or MIDI (.mid)",
-  dropTextPdf: "MusicXML (.musicxml, .xml, .mxl), MIDI (.mid) or a PDF (beta)",
+  dropTextPdf: "A PDF (beta), MusicXML (.musicxml, .mxl) or MIDI (.mid)",
   browse: "Choose a file",
   dropOverlay: "Drop to open",
   tryDemo: "Or try a demo",
@@ -82,7 +81,7 @@ export const S = {
   effectsHint: "Turn off on slow computers.",
   about: "About",
   aboutText:
-    'Quickiano is free and open source. Piano sound: Salamander Grand Piano by Alexander Holm (CC BY 3.0). Sheet music: OpenSheetMusicDisplay. <a href="https://github.com/adrijus-lazdauskas/quickiano" target="_blank" rel="noopener">GitHub</a>',
+    'Quickiano is free and open source. Piano sound: Salamander Grand Piano by Alexander Holm (CC BY 3.0). Sheet music: OpenSheetMusicDisplay. PDF recognition: Audiveris. <a href="https://github.com/adrijus-lazdauskas/quickiano" target="_blank" rel="noopener">GitHub</a>',
 
   play: "Play",
   stop: "Stop",
