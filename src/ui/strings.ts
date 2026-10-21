@@ -126,6 +126,7 @@ export const S = {
   fingerSource: { auto: "suggested", file: "from the score", user: "yours" } as Record<string, string>,
   pickHint: "Press 1–5 to set the finger, 0 to reset, ← → for the next note, Esc to close.",
   sheetHint: "Click a note to hear it and change its finger.",
+  fallHint: "Scroll to look ahead. Play goes on from there.",
   midiNoSheet: "Sheet music needs a MusicXML file. This MIDI song plays in falling notes.",
 
   pianoLoading: "Loading piano sound …",

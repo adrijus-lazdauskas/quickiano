@@ -390,6 +390,15 @@ a {
   position: absolute;
   inset: 0;
 }
+.falling {
+  touch-action: none;
+}
+.falling.scrub {
+  cursor: grab;
+}
+.falling.scrub:active {
+  cursor: grabbing;
+}
 .falling canvas,
 .keyboard canvas {
   display: block;

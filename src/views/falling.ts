@@ -54,6 +54,9 @@ export class FallingView {
   private fx = new Effects();
   private lit = new Set<string>();
   private lastT = 0;
+  private pxPerQ = 0;
+  /** Wheel, trackpad or a drag moved the notes, in quarter notes: positive looks ahead. */
+  onScroll: ((dq: number) => void) | null = null;
 
   constructor() {
     this.el = document.createElement("div");
@@ -63,6 +66,34 @@ export class FallingView {
     this.el.appendChild(this.canvas);
     this.ctx = this.canvas.getContext("2d")!;
     new ResizeObserver(() => this.resize()).observe(this.el);
+    // Scrolling up, or dragging the notes down, brings the coming notes in, as if time ran on.
+    this.el.addEventListener(
+      "wheel",
+      (e) => {
+        if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
+        e.preventDefault();
+        this.scroll(-e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? this.h : 1));
+      },
+      { passive: false },
+    );
+    let dragY: number | null = null;
+    this.el.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      dragY = e.clientY;
+      this.el.setPointerCapture(e.pointerId);
+    });
+    this.el.addEventListener("pointermove", (e) => {
+      if (dragY == null) return;
+      this.scroll(e.clientY - dragY);
+      dragY = e.clientY;
+    });
+    const drop = () => (dragY = null);
+    this.el.addEventListener("pointerup", drop);
+    this.el.addEventListener("pointercancel", drop);
+  }
+
+  private scroll(px: number): void {
+    if (px && this.pxPerQ) this.onScroll?.(px / this.pxPerQ);
   }
 
   setLayout(l: KeyLayout): void {
@@ -124,6 +155,7 @@ export class FallingView {
     for (const m of L.whites) if (m % 12 === 0) g.fillRect(Math.round(L.get(m)!.x), 0, 1, H);
 
     const pxPerQ = (H / WINDOW_SECONDS) * t.spq;
+    this.pxPerQ = pxPerQ;
     const yOf = (rel: number) => H - (rel - t.raw) * pxPerQ;
     const loopOn = t.loop && this.loopLen > EPS;
     const passes: number[] = [];

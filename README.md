@@ -26,7 +26,7 @@ YouTube piano tutorials are great until you need bar 23 at half speed, with the 
 - ✋ **Finger numbers** on every note and right under the keys, suggested automatically for both hands. Fingerings written in the score are kept, and you can change any finger with one key press.
 - 🐢 **Any tempo** from a crawl to full speed, changeable while it plays.
 - 🔁 **Loop any bars**: pick a part with one click or choose your own first and last bar.
-- ⏸️ **Pause anywhere** and go on from the same spot, with a count-in to find the beat again.
+- ⏸️ **Pause anywhere** and scroll ahead through the falling notes to see what's coming; play goes on from there, with a count-in to find the beat again.
 - 👂 **Hands separately**: mute the right or the left hand and play that part yourself.
 - ⏱️ **Count-in and click** so you start on the beat.
 - 🔤 **Note names** in the system you learned: C D E F G A **B**, C D E F G A **H** (German), or **Do Re Mi**.
@@ -60,6 +60,7 @@ Please only use files you are allowed to use. Quickiano ships nothing but public
 | <kbd>Space</kbd>          | Play / pause                             |
 | <kbd>Home</kbd>           | Back to the start of the bars            |
 | <kbd>↑</kbd> <kbd>↓</kbd> | Tempo up / down                          |
+| Scroll or drag            | Look ahead while paused (falling notes)  |
 | Click a note              | Hear it and select it (sheet music view) |
 | <kbd>1</kbd>–<kbd>5</kbd> | Set the finger for the selected note     |
 | <kbd>0</kbd>              | Back to the suggested finger             |

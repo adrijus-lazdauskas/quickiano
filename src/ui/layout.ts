@@ -45,6 +45,7 @@ export function renderLayout(root: HTMLElement): void {
     <div class="view-host" id="viewHost">
       <div class="count-badge" id="countBadge" hidden></div>
       <p class="sheet-hint" id="sheetHint" hidden>${S.sheetHint}</p>
+      <p class="sheet-hint" id="fallHint" hidden>${S.fallHint}</p>
       <div class="pick-bar" id="pickBar" hidden></div>
     </div>
   </main>

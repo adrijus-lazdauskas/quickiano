@@ -93,6 +93,7 @@ export class App {
       playNote(m, 0, 1, 0.7);
     };
     this.sheet.onPick = (n) => this.onPick(n);
+    this.falling.onScroll = (dq) => this.scrollBy(dq);
     this.transport.onStop = () => {
       this.cursor = null;
       this.paintPlay();
@@ -557,6 +558,19 @@ export class App {
     }
   }
 
+  /** Scrolling the falling notes while stopped moves the place that playing goes on from. */
+  private scrollBy(dq: number): void {
+    const sc = this.score;
+    if (!sc || this.transport.running) return;
+    const M = sc.measures;
+    const end = M[this.to].startQ + M[this.to].durQ - M[this.from].startQ;
+    const top = -PREROLL_SECONDS / (60 / this.settings.get().bpm);
+    const at = Math.min(end, Math.max(top, (this.cursor ?? top) + dq));
+    this.cursor = at <= top + EPS ? null : at;
+    this.paintPlay();
+    this.requestFrame();
+  }
+
   private syncTransport(): void {
     const st = this.settings.get();
     this.transport.loop = st.loop;
@@ -570,6 +584,9 @@ export class App {
     b.classList.toggle("playing", on);
     b.setAttribute("aria-label", on ? S.pause : S.play);
     $<HTMLButtonElement>("restartBtn").disabled = !on && this.cursor == null;
+    // Stopped, the falling notes scroll.
+    this.falling.el.classList.toggle("scrub", !on);
+    $("fallHint").hidden = on || this.settings.get().view !== "falling";
     if (!on) $("countBadge").hidden = true;
   }
 
@@ -781,6 +798,7 @@ export class App {
       this.falling.el.hidden = s.view !== "falling";
       this.sheet.el.hidden = s.view !== "sheet";
       $("sheetHint").hidden = s.view !== "sheet" || this.score?.source === "midi";
+      $("fallHint").hidden = s.view !== "falling" || this.transport.running;
       if (s.view !== "sheet") this.onPick(null);
       document.querySelector(".app")!.setAttribute("data-view", s.view);
       if (s.view === "sheet" && this.score) void this.showSheet();
