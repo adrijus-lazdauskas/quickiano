@@ -45,10 +45,11 @@ function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<
   );
 }
 
-export async function saveSong(rec: SongRecord): Promise<boolean> {
+/** Keeps a song; `last` also makes it the one that opens next time. */
+export async function saveSong(rec: SongRecord, last = true): Promise<boolean> {
   try {
     await run("readwrite", (s) => s.put(rec));
-    lsSet(LAST, rec.id);
+    if (last) lsSet(LAST, rec.id);
     return true;
   } catch {
     return false;

@@ -155,20 +155,25 @@ export class App {
   }
 
   private async openData(buf: ArrayBuffer, fileName: string): Promise<void> {
-    const u8 = new Uint8Array(buf);
-    let rec: SongRecord;
-    if (isMidi(u8)) {
-      const score = parseMidi(buf, fileName);
-      rec = this.recordFor(score, hashBytes(u8), fileName, "midi", buf.slice(0));
-      this.useScore(score, rec, "");
-    } else {
-      const text = await bytesToScoreText(buf);
-      const score = this.parseXml(text, fileName);
-      rec = this.recordFor(score, hashText(text), fileName, "musicxml", text);
-      this.useScore(score, rec, text);
-    }
+    const { score, rec, text } = await this.readSong(buf, fileName);
+    this.useScore(score, rec, text);
     if (!(await saveSong(rec))) this.toast(S.notSaved);
     void this.paintRecent();
+  }
+
+  /** Reads a MusicXML, .mxl or MIDI file into a score and the record that keeps it. */
+  private async readSong(
+    buf: ArrayBuffer,
+    fileName: string,
+  ): Promise<{ score: Score; rec: SongRecord; text: string }> {
+    const u8 = new Uint8Array(buf);
+    if (isMidi(u8)) {
+      const score = parseMidi(buf, fileName);
+      return { score, rec: this.recordFor(score, hashBytes(u8), fileName, "midi", buf.slice(0)), text: "" };
+    }
+    const text = await bytesToScoreText(buf);
+    const score = this.parseXml(text, fileName);
+    return { score, rec: this.recordFor(score, hashText(text), fileName, "musicxml", text), text };
   }
 
   /** Converted PDFs often carry no title; the file name is better than "Untitled". */
@@ -245,17 +250,22 @@ export class App {
     if (this.conv !== job) return;
     const waiting = this.state() === "converting";
     this.finishConvert(job);
-    const open = async () => {
-      await this.openData(res.data, file.name);
-      this.toast(S.convertDone(res.pages, res.movements));
-    };
     const failed = (e: unknown) => S.loadFailed + " " + ((e as Error).message || "");
-    if (waiting) await open().catch((e) => this.convertFailed(file, failed(e)));
-    else
-      this.toast(S.readyToast(name), false, {
-        label: S.open,
-        run: () => open().catch((e) => this.toast(failed(e), true)),
-      });
+    try {
+      const song = await this.readSong(res.data, file.name);
+      if (waiting) this.useScore(song.score, song.rec, song.text);
+      // Kept in your recent songs right away, so it is still there if you miss the toast.
+      const saved = await saveSong(song.rec, waiting);
+      void this.paintRecent();
+      if (waiting) this.toast(saved ? S.convertDone(res.pages, res.movements) : S.notSaved);
+      else
+        this.toast(S.readyToast(song.rec.title), false, {
+          label: S.open,
+          run: () => this.openRecord(song.rec).catch((e) => this.toast(failed(e), true)),
+        });
+    } catch (e) {
+      this.convertFailed(file, failed(e));
+    }
   }
 
   /** Shows why a conversion failed: on the waiting screen, or as a toast if you went elsewhere. */
