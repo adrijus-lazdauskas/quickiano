@@ -1,5 +1,5 @@
 import { converterAvailable } from "../app/converter";
-import { PALETTES } from "../app/settings";
+import { BPM_MIN, PALETTES } from "../app/settings";
 import { ICON } from "./icons";
 import { S } from "./strings";
 
@@ -53,7 +53,7 @@ export function renderLayout(root: HTMLElement): void {
     <button type="button" class="play-btn" id="playBtn" aria-label="${S.play}">${ICON.play}</button>
     <div class="tempo">
       <label for="bpm">${S.tempo}</label>
-      <input type="range" id="bpm" min="20" max="160" step="2" value="60">
+      <input type="range" id="bpm" min="${BPM_MIN}" max="160" step="2" value="60">
       <output id="bpmOut" for="bpm"></output>
     </div>
     <div class="ctrl-group">

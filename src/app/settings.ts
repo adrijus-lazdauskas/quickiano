@@ -56,6 +56,10 @@ export const DEFAULTS: Settings = {
 
 const KEY = "quickiano:settings";
 
+/** Tempo limits in quarter notes per minute; the slider never goes past them. */
+export const BPM_MIN = 20;
+export const BPM_MAX = 400;
+
 export function lsGet<T>(key: string, fallback: T): T {
   try {
     const v = localStorage.getItem(key);
@@ -111,6 +115,9 @@ function sanitize(s: Partial<Settings>): Partial<Settings> {
   }
   if (out.view && out.view !== "falling" && out.view !== "sheet") delete out.view;
   if (out.naming && !["english", "german", "solfege"].includes(out.naming)) delete out.naming;
-  if (out.bpm != null && !(out.bpm >= 20 && out.bpm <= 240)) delete out.bpm;
+  if (out.bpm != null) {
+    if (Number.isFinite(out.bpm)) out.bpm = Math.min(BPM_MAX, Math.max(BPM_MIN, out.bpm));
+    else delete out.bpm;
+  }
   return out;
 }

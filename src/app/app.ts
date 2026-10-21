@@ -31,7 +31,7 @@ import {
   type SongRecord,
 } from "./library";
 import { ConvertError, convertPdf, converterAvailable, type ConvertResult } from "./converter";
-import { PALETTES, type Settings, SettingsStore } from "./settings";
+import { BPM_MAX, PALETTES, type Settings, SettingsStore } from "./settings";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const esc = (s: string) =>
@@ -355,7 +355,7 @@ export class App {
 
     const bpm = $<HTMLInputElement>("bpm");
     const target = score.tempo || 100;
-    bpm.max = String(Math.max(160, Math.ceil((target * 1.25) / 2) * 2));
+    bpm.max = String(Math.min(BPM_MAX, Math.max(160, Math.ceil((target * 1.25) / 2) * 2)));
     const cur = this.settings.get().bpm;
     if (cur > +bpm.max) this.settings.set({ bpm: +bpm.max });
     bpm.value = String(this.settings.get().bpm);
