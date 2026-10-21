@@ -38,4 +38,22 @@ describe("library", () => {
     expect(rows.size).toBe(0);
     expect(lib.lastSongId()).toBe(null);
   });
+
+  it("keeps only the songs opened last", async () => {
+    const { lib, rows } = await library();
+    for (let i = 1; i <= lib.KEEP_SONGS + 2; i++) await lib.saveSong(song("s" + i, i));
+    expect(rows.size).toBe(lib.KEEP_SONGS);
+    expect(rows.has("s1")).toBe(false);
+    expect(rows.has("s2")).toBe(false);
+    expect(rows.has("s3")).toBe(true);
+    expect(lib.lastSongId()).toBe("s" + (lib.KEEP_SONGS + 2));
+  });
+
+  it("can keep a song without opening it next time", async () => {
+    const { lib } = await library();
+    await lib.saveSong(song("open"));
+    await lib.saveSong(song("converted", 2), false);
+    expect(lib.lastSongId()).toBe("open");
+    expect((await lib.recentSongs()).map((r) => r.id)).toEqual(["converted", "open"]);
+  });
 });

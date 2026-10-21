@@ -17,6 +17,8 @@ export interface SongRecord {
 const DB = "quickiano";
 const STORE = "songs";
 const LAST = "quickiano:last";
+/** Songs kept in the browser; the ones opened longest ago make room for new ones. */
+export const KEEP_SONGS = 30;
 
 let dbp: Promise<IDBDatabase> | null = null;
 
@@ -51,9 +53,19 @@ export async function saveSong(rec: SongRecord, last = true): Promise<boolean> {
   try {
     await run("readwrite", (s) => s.put(rec));
     if (last) lsSet(LAST, rec.id);
-    return true;
   } catch {
     return false;
+  }
+  await makeRoom();
+  return true;
+}
+
+async function makeRoom(): Promise<void> {
+  try {
+    const oldestFirst = await run("readonly", (s) => s.index("openedAt").getAllKeys());
+    for (const id of oldestFirst.slice(0, -KEEP_SONGS)) await removeSong(String(id));
+  } catch {
+    /* the next save tries again */
   }
 }
 
