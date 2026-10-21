@@ -1,3 +1,4 @@
+import { strikesIn } from "../core/score";
 import type { Hand, Note, Score } from "../core/types";
 import { EPS } from "../core/types";
 import { type RGB, luminance, rgba, shade } from "./color";
@@ -76,7 +77,7 @@ export class FallingView {
     this.startQ = M[from].startQ;
     this.loopLen = M[to].startQ + M[to].durQ - this.startQ;
     // Key presses only: tie continuations are drawn as part of their head, unless the head is before the selection.
-    this.notes = score.notes.filter((n) => n.m >= from && n.m <= to && (!n.cont || n.headM < from));
+    this.notes = strikesIn(score, from, to);
     this.lit.clear();
     this.fx.clear();
   }

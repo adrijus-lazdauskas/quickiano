@@ -4,7 +4,7 @@ import { computeFingering, type FingerOverrides, tieHead } from "../core/fingeri
 import { isMidi, parseMidi } from "../core/midi";
 import { bytesToScoreText, hashBytes, hashText } from "../core/mxl";
 import { parseMusicXML } from "../core/musicxml";
-import { titleFromFileName, UNTITLED } from "../core/score";
+import { strikesIn, titleFromFileName, UNTITLED } from "../core/score";
 import { fullName, keyName, pitchName, soundingSpelling, spellMidi } from "../core/noteNames";
 import type { Hand, Note, Score } from "../core/types";
 import { EPS } from "../core/types";
@@ -461,9 +461,8 @@ export class App {
     this.sheet.setSelection(a, b);
     this.falling.setSelection(sc, a, b);
     this.selNotes = sc.notes.filter((n) => n.m >= a && n.m <= b);
-    this.attacks = [0, 1].map((h) =>
-      this.selNotes.filter((n) => n.staff === h && !n.grace && (!n.cont || n.headM < a)),
-    ) as [Note[], Note[]];
+    const strikes = strikesIn(sc, a, b);
+    this.attacks = [0, 1].map((h) => strikes.filter((n) => n.staff === h && !n.grace)) as [Note[], Note[]];
     this.onPick(null);
     this.paintTimeline();
     saveRange(this.song!.id, [a, b]);
@@ -692,7 +691,7 @@ export class App {
     this.unlockAudio();
     playNote(n.sound, 0, 0.9, 0.7);
     const st = this.settings.get();
-    const head = tieHead(this.score!, n);
+    const head = tieHead(n);
     const src = head.fingerSrc ? S.fingerSource[head.fingerSrc] : "";
     bar.innerHTML =
       `<strong>${esc(fullName(soundingSpelling(n), st.naming))}</strong>` +
@@ -707,7 +706,7 @@ export class App {
   private setFinger(f: number): void {
     const n = this.sheet.picked;
     if (!n || !this.score || !this.song) return;
-    const head = tieHead(this.score, n);
+    const head = tieHead(n);
     if (f >= 1 && f <= 5) this.overrides[head.id] = f;
     else delete this.overrides[head.id];
     saveFingers(this.song.id, this.overrides);

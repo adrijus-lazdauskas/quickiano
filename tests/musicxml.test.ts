@@ -74,7 +74,7 @@ describe("parseMusicXML", () => {
     expect(e[0].remain).toBe(4);
     expect(e[0].next).toBe(e[1]);
     expect(e[1].cont).toBe(true);
-    expect(e[1].headM).toBe(0);
+    expect(e[1].prev).toBe(e[0]);
   });
 
   it("keeps fingerings from the file and ranks grace notes", () => {

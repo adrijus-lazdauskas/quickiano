@@ -217,12 +217,7 @@ export function computeFingering(score: Score, overrides: FingerOverrides = {}):
 }
 
 /** The note that starts the tie chain `n` belongs to. */
-export function tieHead(score: Score, n: Note): Note {
-  if (!n.cont) return n;
-  return (
-    score.notes.find((x) => {
-      for (let c = x.next; c; c = c.next) if (c === n) return true;
-      return false;
-    }) ?? n
-  );
+export function tieHead(n: Note): Note {
+  while (n.prev) n = n.prev;
+  return n;
 }

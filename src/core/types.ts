@@ -43,9 +43,9 @@ export interface Note {
   tieStop: boolean;
   /** Tied continuation: not struck again. */
   cont: boolean;
+  /** Neighbours in a tie chain. */
   next: Note | null;
-  /** Measure of the note that starts the tie chain. */
-  headM: number;
+  prev: Note | null;
   fileFinger: number | null;
   fixed: number | null;
   autoFinger: number | null;

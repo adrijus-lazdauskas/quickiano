@@ -1,6 +1,7 @@
 import { getContext, outputLatency, resume, silenceScheduled } from "../audio/engine";
 import { click } from "../audio/metronome";
 import { playNote } from "../audio/piano";
+import { strikesIn } from "../core/score";
 import type { Measure, Note, Score } from "../core/types";
 import { EPS } from "../core/types";
 
@@ -120,10 +121,8 @@ export class Transport {
     this.startQ = M[from].startQ;
     this.loopLen = M[to].startQ + M[to].durQ - this.startQ;
     const ev: PlayEvent[] = [];
-    for (const n of score.notes) {
-      if (n.m < from || n.m > to) continue;
-      // A tie from before the selection still sounds from its first bar inside it.
-      if (n.cont && n.headM >= from) continue;
+    // A tie from before the selection still sounds from its first bar inside it.
+    for (const n of strikesIn(score, from, to)) {
       ev.push({ kind: "note", t: n.q - this.startQ, g: n.grace ? n.graceRank || 1 : 0, n, dur: n.remain });
     }
     for (let mi = from; mi <= to; mi++) {

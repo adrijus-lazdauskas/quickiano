@@ -61,7 +61,7 @@ export function finalizeScore(d: ScoreDraft): Score {
     graceRank: 0,
     cont: false,
     next: null,
-    headM: r.m,
+    prev: null,
     fixed: null,
     autoFinger: null,
     finger: null,
@@ -108,15 +108,11 @@ export function finalizeScore(d: ScoreDraft): Score {
       const c = stops.get(tkey(n.staff, n.sound, n.q + n.dur));
       if (c && c !== n && !c.cont) {
         c.cont = true;
+        c.prev = n;
         n.next = c;
         n.remain = n.dur + c.remain;
       }
     }
-  }
-  for (const n of notes) {
-    if (n.cont) continue;
-    n.headM = n.m;
-    for (let c = n.next; c; c = c.next) c.headM = n.m;
   }
 
   // Grace notes: rank 1 sits right before the main note.
@@ -175,6 +171,14 @@ export function finalizeScore(d: ScoreDraft): Score {
 /** Notes that start a key press: no tied continuations. */
 export function attacks(score: Score): Note[] {
   return score.notes.filter((n) => !n.cont);
+}
+
+/**
+ * Notes struck in bars `from`..`to`: every key press that starts there, plus the first
+ * tied continuation of a note held over from before, which then sounds for the rest.
+ */
+export function strikesIn(score: Score, from: number, to: number): Note[] {
+  return score.notes.filter((n) => n.m >= from && n.m <= to && (!n.cont || n.prev!.m < from));
 }
 
 /** End of the measure range in quarter notes. */
