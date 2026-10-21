@@ -20,8 +20,6 @@ const FIFTHS: Record<string, number> = {
   "F#": 6,
   "C#": 7,
 };
-/** A minor shares the signature of C major: three fifths below its tonic's major key. */
-const MINOR_SHIFT = -3;
 
 /** Snap to 1/48 of a quarter so slightly humanised files line up. */
 const snap = (q: number) => Math.round(q * 48) / 48;
@@ -82,7 +80,8 @@ export function parseMidi(buf: ArrayBuffer, fileName: string): Score {
   const lastEnd = Math.max(...hands.flat().map((n) => n.q + Math.max(n.dur, 0.25)));
   const measures: MeasureDraft[] = [];
   const ks = midi.header.keySignatures[0];
-  const fifths = ks ? (FIFTHS[ks.key] ?? 0) + (ks.scale === "minor" ? MINOR_SHIFT : 0) : 0;
+  // @tonejs/midi names a signature by its major key, also in minor (A minor is "C"), so this is the count.
+  const fifths = ks ? (FIFTHS[ks.key] ?? 0) : 0;
   const mode = ks?.scale === "minor" ? "minor" : "major";
   let q = 0;
   let si = 0;

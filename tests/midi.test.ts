@@ -2,6 +2,7 @@
 import { Midi } from "@tonejs/midi";
 import { describe, expect, it } from "vitest";
 import { isMidi, parseMidi } from "../src/core/midi";
+import type { Note } from "../src/core/types";
 
 function file(tracks: { midi: number; beat: number; beats: number }[][], ts: [number, number] = [4, 4]) {
   const m = new Midi();
@@ -14,6 +15,18 @@ function file(tracks: { midi: number; beat: number; beats: number }[][], ts: [nu
   }
   const u8 = m.toArray();
   return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer;
+}
+
+/**
+ * One track with a key signature and quarter notes, written by hand: @tonejs/midi
+ * writes key signatures wrong (index + 7), so its own writer can't make this file.
+ */
+function withKey(sharps: number, minor: boolean, notes: number[]): ArrayBuffer {
+  const ev = [0x00, 0xff, 0x59, 0x02, sharps & 0xff, minor ? 1 : 0];
+  for (const m of notes) ev.push(0x00, 0x90, m, 0x64, 0x83, 0x60, 0x80, m, 0x00);
+  ev.push(0x00, 0xff, 0x2f, 0x00);
+  const head = [0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0x01, 0xe0];
+  return new Uint8Array([...head, 0x4d, 0x54, 0x72, 0x6b, 0, 0, 0, ev.length, ...ev]).buffer;
 }
 
 describe("parseMidi", () => {
@@ -63,6 +76,20 @@ describe("parseMidi", () => {
     const s = parseMidi(buf, "waltz.mid");
     expect(s.timeLabel).toBe("3/4");
     expect(s.measures.map((m) => m.startQ)).toEqual([0, 3, 6]);
+  });
+
+  it("spells notes from the key signature, also in minor keys", () => {
+    const name = (n: Note) => n.step + (n.alter > 0 ? "#" : n.alter < 0 ? "b" : "");
+    const aMinor = parseMidi(withKey(0, true, [76, 75, 68]), "fur-elise.mid");
+    expect(aMinor.fifths).toBe(0);
+    expect(aMinor.mode).toBe("minor");
+    expect(aMinor.notes.map(name)).toEqual(["E", "D#", "G#"]);
+    const eMinor = parseMidi(withKey(1, true, [75]), "e.mid");
+    expect(eMinor.fifths).toBe(1);
+    expect(eMinor.notes.map(name)).toEqual(["D#"]);
+    const cMinor = parseMidi(withKey(-3, true, [63, 68]), "c.mid");
+    expect(cMinor.fifths).toBe(-3);
+    expect(cMinor.notes.map(name)).toEqual(["Eb", "Ab"]);
   });
 
   it("rejects garbage", () => {
