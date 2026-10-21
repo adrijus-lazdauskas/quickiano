@@ -85,13 +85,11 @@ def create_api(backend: Backend, lifespan=None) -> FastAPI:
     # Added before CORS, so CORS wraps it and the browser can read these answers too.
     @app.middleware("http")
     async def limit_uploads(request: Request, call_next):
-        """Turns an upload away by its size before reading it; FastAPI would read it all first."""
-        if request.method == "POST":
-            size = request.headers.get("content-length", "")
-            if not size.isdigit():
-                return JSONResponse({"detail": "Please send the PDF in one piece, with its size."}, 411)
-            if int(size) > convert.MAX_BYTES + FORM_OVERHEAD:
-                return JSONResponse({"detail": convert.too_large()}, 413)
+        """Turns an upload away by its size before reading it; FastAPI would read it all first.
+        Without a size (a proxy may drop it) the check after reading still applies."""
+        size = request.headers.get("content-length", "")
+        if request.method == "POST" and size.isdigit() and int(size) > convert.MAX_BYTES + FORM_OVERHEAD:
+            return JSONResponse({"detail": convert.too_large()}, 413)
         return await call_next(request)
 
     app.add_middleware(

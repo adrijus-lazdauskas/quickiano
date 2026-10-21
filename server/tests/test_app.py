@@ -117,11 +117,19 @@ def test_turns_away_a_large_upload_before_reading_it(client_for, monkeypatch):
     assert r.headers["access-control-allow-origin"] == "https://quickiano.pages.dev"
 
 
-def test_wants_to_know_the_size_of_an_upload(client_for):
-    def chunks():
-        yield b"%PDF"
+def test_checks_an_upload_without_a_size_after_reading_it(client_for):
+    form = (
+        b'--x\r\nContent-Disposition: form-data; name="file"; filename="notes.txt"\r\n'
+        b"Content-Type: text/plain\r\n\r\nhello\r\n--x--\r\n"
+    )
 
-    assert client_for("exit 0").post("/jobs", content=chunks()).status_code == 411
+    def chunks():
+        yield form
+
+    r = client_for("exit 0").post(
+        "/jobs", content=chunks(), headers={"content-type": "multipart/form-data; boundary=x"}
+    )
+    assert r.status_code == 415
 
 
 def test_reports_when_no_music_was_found(client_for):

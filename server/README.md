@@ -18,7 +18,7 @@ The public converter runs on [Modal](https://modal.com): every conversion gets i
 A conversion can take minutes, so it runs as a job:
 
 - `GET /`: health check, `{"status": "ok", "busy": false, "waiting": 0, "maxPages": 12}`. Quickiano calls it first to wake a sleeping server.
-- `POST /jobs`: multipart form with a `file` field (the PDF). Answers `202` with `{"id": "…", "status": "queued" | "running", "pages": 4}`, or an error `{"detail": "…"}`: 411 (no size given), 413 (too big or too many pages), 415 (not a PDF), 422 (unreadable PDF), 429 (too busy, or too many PDFs from one address within an hour).
+- `POST /jobs`: multipart form with a `file` field (the PDF). Answers `202` with `{"id": "…", "status": "queued" | "running", "pages": 4}`, or an error `{"detail": "…"}`: 413 (too big or too many pages), 415 (not a PDF), 422 (unreadable PDF), 429 (too busy, or too many PDFs from one address within an hour).
 - `GET /jobs/{id}`: `status` is `queued` (with `ahead`), `running`, `done` or `failed` (with `error`).
 - `GET /jobs/{id}/result`: the `.mxl`, with the headers `X-Pages`, `X-Movements` (Audiveris exports one file per movement; the first one is returned) and `X-Seconds`.
 - `DELETE /jobs/{id}`: cancels a job.
