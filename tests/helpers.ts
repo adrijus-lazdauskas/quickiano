@@ -48,3 +48,7 @@ export const rest = (dur: number, staff: 1 | 2) =>
   `<note><rest/><duration>${dur}</duration><voice>${staff === 1 ? 1 : 5}</voice><staff>${staff}</staff></note>`;
 
 export const backup = (dur: number) => `<backup><duration>${dur}</duration></backup>`;
+
+/** An 8va/8vb line mark: "down" starts 8va, "up" starts 8vb, then "stop" or "continue". */
+export const octaveShift = (type: "down" | "up" | "stop" | "continue", staff: 1 | 2 = 1, size = 8) =>
+  `<direction><direction-type><octave-shift type="${type}" size="${size}"/></direction-type><staff>${staff}</staff></direction>`;

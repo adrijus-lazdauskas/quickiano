@@ -26,13 +26,14 @@ export interface Note {
   dur: number;
   /** Sounding length including tied continuations. */
   remain: number;
-  /** Written pitch as MIDI number. */
+  /** Written pitch as MIDI number: where the note is drawn, 8va lines taken out. */
   midi: number;
-  /** Sounding pitch after 8va/8vb shifts: the key you actually press. */
+  /** Sounding pitch, the key you actually press. MusicXML's <pitch> holds this one. */
   sound: number;
   shift: number;
   step: Step;
   alter: number;
+  /** Written octave, like `midi`. */
   octave: number;
   grace: boolean;
   chord: boolean;

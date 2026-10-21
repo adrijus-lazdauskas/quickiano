@@ -110,6 +110,8 @@ function parsePart(partEl: Element, pi: number, staffMap: Record<string, Hand>):
           for (const dt of kids(el, "direction-type")) {
             for (const os of kids(dt, "octave-shift")) {
               const type = os.getAttribute("type");
+              // "continue" only carries the line on to the next system; the shift stays.
+              if (type === "continue") continue;
               const size = parseInt(os.getAttribute("size") || "", 10) || 8;
               const oct = Math.max(1, Math.round((size - 1) / 7));
               const shift = type === "down" ? 12 * oct : type === "up" ? -12 * oct : 0;
@@ -326,7 +328,8 @@ export function parseMusicXML(text: string): Score {
     q += len;
   }
 
-  // Octave shifts: the latest shift on the same staff before the note applies.
+  // Octave shifts: the latest shift on the same staff before the note applies. <pitch> already
+  // holds the sounding pitch, an 8va line only moves where the note is drawn.
   shifts.sort((a, b) => a.q - b.q || a.order - b.order);
   for (const n of notes) {
     let shift = 0;
@@ -335,6 +338,8 @@ export function parseMusicXML(text: string): Score {
       if (s.q < n.q - EPS || (Math.abs(s.q - n.q) < EPS && s.order < n.order)) shift = s.shift;
     }
     n.shift = shift;
+    n.midi -= shift;
+    n.octave -= shift / 12;
   }
 
   return finalizeScore({

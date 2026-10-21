@@ -222,6 +222,7 @@ export class SheetView {
             for (const gn of gve.notes || []) {
               const sn = gn.sourceNote;
               if (!sn?.Pitch || sn.isRest?.()) continue;
+              // OSMD keeps the pitch from the file (the sounding one) and only draws it shifted.
               arr.push({ rel, midi: sn.Pitch.getHalfTone() + 12, grace, gn, used: false });
             }
           }
@@ -280,7 +281,7 @@ export class SheetView {
       const rest: Note[] = [];
       for (const n of list) {
         const hit = gl.find(
-          (g) => !g.used && g.midi === n.midi && g.grace === n.grace && Math.abs(g.rel - n.rel) < 0.01,
+          (g) => !g.used && g.midi === n.sound && g.grace === n.grace && Math.abs(g.rel - n.rel) < 0.01,
         );
         if (hit) {
           hit.used = true;
@@ -291,7 +292,7 @@ export class SheetView {
         let best: (typeof gl)[number] | null = null;
         let bd = Infinity;
         for (const g of gl) {
-          if (g.used || g.midi !== n.midi || g.grace !== n.grace) continue;
+          if (g.used || g.midi !== n.sound || g.grace !== n.grace) continue;
           const d = Math.abs(g.rel - n.rel);
           if (d < bd) {
             bd = d;

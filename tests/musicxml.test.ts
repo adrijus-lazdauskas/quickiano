@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseMusicXML } from "../src/core/musicxml";
-import { backup, note, pianoXML, rest } from "./helpers";
+import { backup, note, octaveShift, pianoXML, rest } from "./helpers";
 
 describe("parseMusicXML", () => {
   it("reads title, composer, hands and the measure grid", () => {
@@ -94,19 +94,54 @@ describe("parseMusicXML", () => {
     expect(main.fileFinger).toBe(3);
   });
 
-  it("applies 8va lines to the sounding pitch", () => {
+  it("reads 8va lines as notation only: the file holds the sounding pitch", () => {
     const xml = pianoXML(
       '<measure number="1">' +
-        '<direction><direction-type><octave-shift type="down" size="8"/></direction-type><staff>1</staff></direction>' +
-        note("C5", 16, 1) +
+        octaveShift("down") +
+        note("C7", 4, 1) +
+        octaveShift("continue") +
+        note("B6", 4, 1) +
+        octaveShift("stop") +
+        note("A5", 8, 1) +
+        backup(16) +
+        octaveShift("up", 2, 15) +
+        note("C1", 16, 2) +
+        "</measure>",
+    );
+    const s = parseMusicXML(xml);
+    const by = (sound: number) => s.notes.find((n) => n.sound === sound)!;
+    // C7 sounds and is drawn as C6 under the line.
+    expect(by(96)).toMatchObject({ midi: 84, octave: 6, shift: 12 });
+    expect(by(95)).toMatchObject({ midi: 83, shift: 12 });
+    expect(by(81)).toMatchObject({ midi: 81, shift: 0 });
+    // 15mb: C1 is drawn two octaves up, as C3.
+    expect(by(24)).toMatchObject({ midi: 48, octave: 3, shift: -24 });
+    expect(s.lo).toBe(24);
+    expect(s.hi).toBe(96);
+    expect(s.hasShift).toBe(true);
+  });
+
+  it("joins a tie that runs out of an 8va line and keeps ids on the sounding pitch", () => {
+    const xml = pianoXML(
+      '<measure number="1">' +
+        octaveShift("down") +
+        note("C7", 16, 1, { tie: "start" }) +
+        octaveShift("stop") +
+        backup(16) +
+        rest(16, 2) +
+        "</measure>" +
+        '<measure number="2">' +
+        note("C7", 16, 1, { tie: "stop" }) +
         backup(16) +
         rest(16, 2) +
         "</measure>",
     );
-    const s = parseMusicXML(xml);
-    expect(s.notes[0].midi).toBe(72);
-    expect(s.notes[0].sound).toBe(84);
-    expect(s.hasShift).toBe(true);
+    const [head, tail] = parseMusicXML(xml).notes.filter((n) => n.sound === 96);
+    expect(head.midi).toBe(84);
+    expect(tail.midi).toBe(96);
+    expect(head.next).toBe(tail);
+    expect(tail.cont).toBe(true);
+    expect(head.id).toBe("0:0:0:96:1");
   });
 
   it("reads the tempo from a metronome mark", () => {

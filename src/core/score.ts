@@ -69,7 +69,7 @@ export function finalizeScore(d: ScoreDraft): Score {
   }));
   notes.sort((a, b) => a.q - b.q || a.order - b.order);
 
-  // Stable ids (used for fingering overrides).
+  // Stable ids (used for fingering overrides), with the pitch as the file gives it.
   const seen = new Map<string, number>();
   for (const n of notes) {
     let id =
@@ -79,7 +79,7 @@ export function finalizeScore(d: ScoreDraft): Score {
       ":" +
       Math.round(n.rel * 960) +
       ":" +
-      n.midi +
+      n.sound +
       ":" +
       n.voice +
       (n.grace ? "g" : "");
@@ -92,11 +92,12 @@ export function finalizeScore(d: ScoreDraft): Score {
   }
 
   // Ties: continuation notes are not struck again; heads carry the full length.
+  // Matched by the sounding pitch, so a tie that runs out of an 8va line still joins.
   const tkey = (st: number, midi: number, at: number) => st + "|" + midi + "|" + Math.round(at * 960);
   const stops = new Map<string, Note>();
   for (const n of notes) {
     if (n.tieStop && !n.grace) {
-      const k = tkey(n.staff, n.midi, n.q);
+      const k = tkey(n.staff, n.sound, n.q);
       if (!stops.has(k)) stops.set(k, n);
     }
   }
@@ -104,7 +105,7 @@ export function finalizeScore(d: ScoreDraft): Score {
     const n = notes[i];
     n.remain = n.dur;
     if (n.tieStart && !n.grace) {
-      const c = stops.get(tkey(n.staff, n.midi, n.q + n.dur));
+      const c = stops.get(tkey(n.staff, n.sound, n.q + n.dur));
       if (c && c !== n && !c.cont) {
         c.cont = true;
         n.next = c;
