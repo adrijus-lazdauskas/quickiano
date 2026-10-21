@@ -6,6 +6,7 @@ can take minutes, so it runs as a job: upload, poll, download.
 """
 
 import os
+import time
 from typing import Protocol
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
@@ -21,6 +22,30 @@ ALLOWED_ORIGINS = os.environ.get(
 
 # Room for the form around the PDF: boundaries and part headers take a few hundred bytes.
 FORM_OVERHEAD = 64 * 1024
+
+
+class RateLimit:
+    """At most `limit` conversions per address within `window` seconds (0 means no limit),
+    so one script can't use up what everybody shares."""
+
+    def __init__(self, limit: int, window: float = 3600) -> None:
+        self.limit = limit
+        self.window = window
+        self.seen: dict[str, list[float]] = {}
+
+    def wait(self, key: str, now: float | None = None) -> float:
+        """0 when `key` may convert now (and counts it), else seconds until it may."""
+        if self.limit <= 0:
+            return 0
+        now = time.monotonic() if now is None else now
+        if len(self.seen) > 10_000:
+            self.seen = {k: v for k, v in self.seen.items() if now - v[-1] < self.window}
+        recent = [t for t in self.seen.get(key, []) if now - t < self.window]
+        self.seen[key] = recent
+        if len(recent) >= self.limit:
+            return self.window - (now - recent[0])
+        recent.append(now)
+        return 0
 
 
 class Busy(Exception):
@@ -55,6 +80,7 @@ def create_api(backend: Backend, lifespan=None) -> FastAPI:
     app = FastAPI(
         title="Quickiano PDF converter", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan
     )
+    limit = RateLimit(int(os.environ.get("JOBS_PER_HOUR", "10")))
 
     # Added before CORS, so CORS wraps it and the browser can read these answers too.
     @app.middleware("http")
@@ -83,12 +109,20 @@ def create_api(backend: Backend, lifespan=None) -> FastAPI:
         return {"status": "ok", **backend.health(), "maxPages": convert.MAX_PAGES}
 
     @app.post("/jobs", status_code=202)
-    async def create_job(file: UploadFile = File(...)) -> dict:
+    async def create_job(request: Request, file: UploadFile = File(...)) -> dict:
         data = await file.read(convert.MAX_BYTES + 1)
         try:
             pages = convert.check_pdf(data)
         except convert.ConversionError as e:
             raise HTTPException(e.status, str(e))
+        # Modal hands over the visitor's address here; it is kept in memory for an hour, never logged.
+        wait = limit.wait(request.client.host if request.client else "")
+        if wait:
+            raise HTTPException(
+                429,
+                "You have converted a lot of PDFs in the last hour. Please try again a little later.",
+                {"Retry-After": str(int(wait) + 1)},
+            )
         try:
             job_id = await backend.submit(data, pages)
         except Busy:

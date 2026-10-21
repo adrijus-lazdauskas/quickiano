@@ -157,6 +157,28 @@ def test_turns_people_away_when_the_line_is_full(client_for):
     assert upload(client, make_pdf()).status_code == 429
 
 
+def test_limits_conversions_per_address(client_for):
+    client = client_for('printf x > "$OUT/score.mxl"', JOBS_PER_HOUR="2")
+    assert upload(client, make_pdf()).status_code == 202
+    assert upload(client, make_pdf()).status_code == 202
+    r = upload(client, make_pdf())
+    assert r.status_code == 429
+    assert "last hour" in r.json()["detail"]
+    assert int(r.headers["retry-after"]) > 0
+
+
+def test_rate_limit_counts_within_a_sliding_window():
+    from api import RateLimit
+
+    limit = RateLimit(2, window=60)
+    assert limit.wait("a", now=0) == 0
+    assert limit.wait("a", now=10) == 0
+    assert limit.wait("a", now=20) == 40
+    assert limit.wait("b", now=20) == 0
+    assert limit.wait("a", now=61) == 0
+    assert RateLimit(0).wait("a") == 0
+
+
 def test_allows_the_quickiano_origin(client_for):
     r = client_for("exit 0").get("/", headers={"Origin": "https://quickiano.pages.dev"})
     assert r.headers["access-control-allow-origin"] == "https://quickiano.pages.dev"
