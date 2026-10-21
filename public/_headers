@@ -5,3 +5,11 @@
 
 /samples/*
   Cache-Control: public, max-age=2592000
+
+# Safety headers for everything: no type guessing, no framing by other sites, only the
+# origin as referrer, and no camera, microphone or location (the app uses none of them).
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
