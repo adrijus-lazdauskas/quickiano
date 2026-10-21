@@ -8,9 +8,9 @@ can take minutes, so it runs as a job: upload, poll, download.
 import os
 from typing import Protocol
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 import convert
 
@@ -18,6 +18,9 @@ ALLOWED_ORIGINS = os.environ.get(
     "ALLOWED_ORIGINS",
     "https://quickiano.pages.dev,http://localhost:5173,http://localhost:5186",
 ).split(",")
+
+# Room for the form around the PDF: boundaries and part headers take a few hundred bytes.
+FORM_OVERHEAD = 64 * 1024
 
 
 class Busy(Exception):
@@ -52,6 +55,19 @@ def create_api(backend: Backend, lifespan=None) -> FastAPI:
     app = FastAPI(
         title="Quickiano PDF converter", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan
     )
+
+    # Added before CORS, so CORS wraps it and the browser can read these answers too.
+    @app.middleware("http")
+    async def limit_uploads(request: Request, call_next):
+        """Turns an upload away by its size before reading it; FastAPI would read it all first."""
+        if request.method == "POST":
+            size = request.headers.get("content-length", "")
+            if not size.isdigit():
+                return JSONResponse({"detail": "Please send the PDF in one piece, with its size."}, 411)
+            if int(size) > convert.MAX_BYTES + FORM_OVERHEAD:
+                return JSONResponse({"detail": convert.too_large()}, 413)
+        return await call_next(request)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[o.strip() for o in ALLOWED_ORIGINS if o.strip()],

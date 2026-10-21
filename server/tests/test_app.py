@@ -98,6 +98,32 @@ def test_rejects_too_many_pages(client_for):
     assert "3 pages" in r.json()["detail"]
 
 
+def test_turns_away_a_large_upload_before_reading_it(client_for, monkeypatch):
+    client = client_for("exit 0", MAX_PDF_MB="1")
+    import convert
+
+    def never(_data):
+        raise AssertionError("the upload should not have been read")
+
+    monkeypatch.setattr(convert, "check_pdf", never)
+    r = client.post(
+        "/jobs",
+        files={"file": ("big.pdf", b"%PDF" + bytes(2 * 1024 * 1024), "application/pdf")},
+        headers={"Origin": "https://quickiano.pages.dev"},
+    )
+    assert r.status_code == 413
+    assert "1 MB" in r.json()["detail"]
+    # The app can read the answer, so it shows that message instead of "can't be reached".
+    assert r.headers["access-control-allow-origin"] == "https://quickiano.pages.dev"
+
+
+def test_wants_to_know_the_size_of_an_upload(client_for):
+    def chunks():
+        yield b"%PDF"
+
+    assert client_for("exit 0").post("/jobs", content=chunks()).status_code == 411
+
+
 def test_reports_when_no_music_was_found(client_for):
     client = client_for("exit 0")
     job = wait_for(client, upload(client, make_pdf()).json()["id"])

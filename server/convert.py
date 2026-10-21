@@ -28,10 +28,14 @@ class ConversionError(Exception):
         self.status = status
 
 
+def too_large() -> str:
+    return f"The PDF is larger than {MAX_BYTES // (1024 * 1024)} MB."
+
+
 def check_pdf(data: bytes) -> int:
     """Validates an upload and returns its page count."""
     if len(data) > MAX_BYTES:
-        raise ConversionError(f"The PDF is larger than {MAX_BYTES // (1024 * 1024)} MB.", 413)
+        raise ConversionError(too_large(), 413)
     if not data.startswith(b"%PDF"):
         raise ConversionError("Please choose a PDF file.", 415)
     try:
