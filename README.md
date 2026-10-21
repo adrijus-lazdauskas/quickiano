@@ -31,7 +31,7 @@ YouTube piano tutorials are great until you need bar 23 at half speed, with the 
 - ⏱️ **Count-in and click** so you start on the beat.
 - 🔤 **Note names** in the system you learned: C D E F G A **B**, C D E F G A **H** (German), or **Do Re Mi**.
 - 🎨 **Your colours** for each hand, five presets or any colour you like.
-- 🔒 **Private by design**: songs are read and stored in your own browser, with no account and no tracking. Only PDFs leave your browser, to be read by the converter, which deletes them right after.
+- 🔒 **Private by design**: songs are read and stored in your own browser, with no account and no tracking. Only PDFs leave your browser, to be read by the converter on Modal, which deletes the PDF and the notes read from it within 7 days.
 
 ## How it works
 
@@ -47,7 +47,7 @@ Quickiano remembers your recent songs, the bars you were working on and every fi
 
 Quickiano opens **PDF** sheet music (beta), **MusicXML** (`.musicxml`, `.xml`, compressed `.mxl`) and **MIDI** (`.mid`). PDFs and MusicXML give you sheet music and falling notes; MIDI gives you falling notes.
 
-- **From a PDF:** just drop it into Quickiano (beta). It goes to Quickiano's free converter ([Audiveris](https://github.com/Audiveris/audiveris) running on [Modal](https://modal.com), code in [`server/`](server/)), which reads the notes and deletes the file right after; the song opens by itself when it's ready. It usually takes one to four minutes; clean printed scores work best, so compare a few bars with your PDF. Prefer to do it yourself: [MuseScore Studio](https://musescore.org) (_File → Import PDF_) or [Audiveris](https://audiveris.github.io/audiveris/) offline, then export MusicXML.
+- **From a PDF:** just drop it into Quickiano (beta). It goes to Quickiano's free converter ([Audiveris](https://github.com/Audiveris/audiveris) running on [Modal](https://modal.com), code in [`server/`](server/)), which reads the notes; Modal keeps the PDF and the result encrypted for up to 7 days, then deletes them. The song opens by itself when it's ready. It usually takes one to four minutes; clean printed scores work best, so compare a few bars with your PDF. Prefer to do it yourself: [MuseScore Studio](https://musescore.org) (_File → Import PDF_) or [Audiveris](https://audiveris.github.io/audiveris/) offline, then export MusicXML.
 - **Download:** many scores on [MuseScore.com](https://musescore.com) and public domain pieces on [IMSLP](https://imslp.org) come as MusicXML or MIDI.
 - **Write it yourself:** any notation app (MuseScore, Dorico, Sibelius, Finale, Flat.io, Noteflight) can export MusicXML.
 

@@ -23,7 +23,7 @@ A conversion can take minutes, so it runs as a job:
 - `GET /jobs/{id}/result`: the `.mxl`, with the headers `X-Pages`, `X-Movements` (Audiveris exports one file per movement; the first one is returned) and `X-Seconds`.
 - `DELETE /jobs/{id}`: cancels a job.
 
-PDFs exist only in a temporary folder while their job runs. Logs keep page counts and timings, nothing else.
+The converter keeps a PDF only in a temporary folder while its job runs. Logs keep page counts and timings, nothing else. On Modal, the platform itself stores the inputs and outputs of every function call, here the PDF and the `.mxl`, encrypted for up to 7 days and then deletes them ([Modal's data retention](https://modal.com/docs/guide/security)); a result can only be fetched with its random job id. For the hourly limit, the visitor's address stays in memory for an hour and is never logged.
 
 ## Deploy to Modal
 

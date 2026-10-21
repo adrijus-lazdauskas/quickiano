@@ -31,12 +31,12 @@ export const S = {
   pdfOutro: "Then drop the .mxl or .musicxml file into Quickiano.",
   beta: "Beta",
   pdfFacts: [
-    "Quickiano sends your PDF to its free converter (Audiveris, running on Modal), which reads the notes and deletes the PDF right after.",
+    "Quickiano sends your PDF to its free converter (Audiveris, running on Modal), which reads the notes. Modal keeps the PDF and the result encrypted for up to 7 days, then deletes them.",
     "It usually takes one to four minutes, plus up to a minute if the converter was asleep. Up to 12 pages.",
     "Clean printed scores work best. Recognition isn't perfect, so compare a few bars with your sheet.",
     "Only use sheet music you're allowed to use.",
   ],
-  dropNotePdf: "PDFs are read by Quickiano's free converter and deleted right after.",
+  dropNotePdf: "PDFs are read by Quickiano's free converter and deleted within 7 days.",
   pdfStage: {
     waking: "Waking up the converter …",
     uploading: "Sending your PDF …",
