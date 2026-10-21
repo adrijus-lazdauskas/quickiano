@@ -253,6 +253,9 @@ export class App {
       if (this.state() !== "converting") {
         this.toast(msg, true, { label: S.cvRetry, run: () => void this.convert(file) });
       }
+    } finally {
+      // Also when a newer PDF replaced this one and it left early above.
+      clearInterval(job.timer);
     }
   }
 
