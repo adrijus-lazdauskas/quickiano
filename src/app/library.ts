@@ -39,8 +39,9 @@ function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<
       new Promise<T>((resolve, reject) => {
         const tx = db.transaction(STORE, mode);
         const req = fn(tx.objectStore(STORE));
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
+        // Done once the transaction is committed: a full disk only shows up there, after the request.
+        tx.oncomplete = () => resolve(req.result);
+        tx.onabort = tx.onerror = () => reject(tx.error ?? req.error);
       }),
   );
 }
