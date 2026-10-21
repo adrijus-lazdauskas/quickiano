@@ -67,34 +67,41 @@ async function failure(res: Response): Promise<ConvertError> {
   return new ConvertError(detail || S.convertFailed(res.status));
 }
 
-async function ping(base: string, signal: AbortSignal): Promise<boolean> {
+async function ping(base: string, signal: AbortSignal, timeoutMs = 10_000): Promise<boolean> {
+  // Gives up after timeoutMs or when `signal` aborts. Not AbortSignal.any: Safari has it only since 17.4.
+  const ask = new AbortController();
+  const stop = () => ask.abort(signal.reason);
+  const timer = setTimeout(() => ask.abort(), timeoutMs);
+  signal.addEventListener("abort", stop, { once: true });
+  if (signal.aborted) stop();
   try {
-    const r = await fetch(base + "/", {
-      cache: "no-store",
-      signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
-    });
+    const r = await fetch(base + "/", { cache: "no-store", signal: ask.signal });
     if (!r.ok) return false;
     return ((await r.json()) as { status?: string }).status === "ok";
   } catch (e) {
     if (signal.aborted) throw e;
     return false;
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener("abort", stop);
   }
 }
 
-/** Free Spaces sleep after a while without visitors; the first request wakes them (up to a minute or two). */
+/** The converter sleeps when nobody uses it; the first request wakes it (up to a minute or two). */
 export async function wake(
   base: string,
   signal: AbortSignal,
   onStage: (s: ConvertStage) => void,
   waitMs = 150_000,
   pollMs = 4_000,
+  pingMs = 10_000,
 ): Promise<void> {
-  if (await ping(base, signal)) return;
+  if (await ping(base, signal, pingMs)) return;
   onStage("waking");
   const until = Date.now() + waitMs;
   while (Date.now() < until) {
     await sleep(pollMs, signal);
-    if (await ping(base, signal)) return;
+    if (await ping(base, signal, pingMs)) return;
   }
   throw new ConvertError(S.convertUnreachable);
 }

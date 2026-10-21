@@ -92,6 +92,47 @@ describe("wake", () => {
     expect(err).toBeInstanceOf(ConvertError);
     expect(stages).toEqual(["waking"]);
   });
+
+  /** A converter that never answers until the request is aborted. */
+  const hanging = () =>
+    vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_, reject) =>
+          init!.signal!.addEventListener("abort", () => reject(init!.signal!.reason)),
+        ),
+    );
+
+  it("works without AbortSignal.any, which Safari has only since 17.4", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ status: "ok" })),
+    );
+    const any = AbortSignal.any;
+    Object.defineProperty(AbortSignal, "any", { value: undefined, configurable: true });
+    try {
+      const stages: string[] = [];
+      await wake(BASE, new AbortController().signal, (s) => stages.push(s));
+      expect(stages).toEqual([]);
+    } finally {
+      Object.defineProperty(AbortSignal, "any", { value: any, configurable: true });
+    }
+  });
+
+  it("gives up on a ping that hangs and keeps trying", async () => {
+    const fetchMock = hanging();
+    vi.stubGlobal("fetch", fetchMock);
+    const err = await wake(BASE, new AbortController().signal, () => {}, 40, 5, 5).catch((e) => e);
+    expect(err).toBeInstanceOf(ConvertError);
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it("stops waiting as soon as you cancel", async () => {
+    vi.stubGlobal("fetch", hanging());
+    const abort = new AbortController();
+    const run = wake(BASE, abort.signal, () => {}, 60_000, 5, 60_000);
+    abort.abort(new DOMException("Cancelled", "AbortError"));
+    await expect(run).rejects.toMatchObject({ name: "AbortError" });
+  });
 });
 
 describe("titleFromFileName", () => {
