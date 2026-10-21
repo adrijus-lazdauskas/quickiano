@@ -898,10 +898,24 @@ export class App {
 
   private bindKeys(): void {
     document.addEventListener("pointerdown", () => this.unlockAudio(), { once: true });
+    // Tab moves the focus by keyboard; a click puts it on whatever was clicked.
+    let tabbing = false;
+    document.addEventListener(
+      "keydown",
+      (e) => {
+        if (e.key === "Tab") tabbing = true;
+      },
+      true,
+    );
+    document.addEventListener("pointerdown", () => (tabbing = false), true);
     document.addEventListener("keydown", (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase() ?? "";
-      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      const el = e.target instanceof HTMLElement ? e.target : null;
+      const tag = el?.tagName.toLowerCase() ?? "";
+      // The tempo slider keeps the focus after a drag, but has no use for Space.
+      const slider = tag === "input" && (el as HTMLInputElement).type === "range";
+      if ((tag === "input" && !(slider && e.key === " ")) || tag === "textarea" || tag === "select") return;
+      if (document.querySelector("dialog[open]")) return;
       if (e.key === "Escape") {
         if (!$("settingsPanel").hidden) {
           $("settingsPanel").hidden = true;
@@ -912,7 +926,10 @@ export class App {
         return;
       }
       if (!this.score || document.querySelector(".app")!.getAttribute("data-state") !== "ready") return;
-      if (e.key === " " && tag !== "button" && tag !== "a") {
+      if (e.key === " ") {
+        // A clicked button keeps the focus, yet Space should still play; only when you tabbed
+        // to a button does Space press it.
+        if ((tag === "button" || tag === "a") && tabbing) return;
         e.preventDefault();
         this.togglePlay();
         return;
