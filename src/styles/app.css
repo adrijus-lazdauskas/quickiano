@@ -616,6 +616,16 @@ a {
     0 0 0 4px color-mix(in srgb, var(--rh) 25%, transparent),
     0 0 32px -4px var(--rh);
 }
+.transport {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.icon-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
 .tempo {
   display: flex;
   align-items: center;
@@ -1401,7 +1411,7 @@ input[type="color"]::-webkit-color-swatch {
     gap: 0.5rem 0.6rem;
   }
   .tempo {
-    flex-basis: calc(100% - 66px);
+    flex-basis: calc(100% - 112px);
   }
   .tempo label {
     display: none;

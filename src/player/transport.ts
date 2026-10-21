@@ -29,7 +29,10 @@ interface ClickEvent {
 type PlayEvent = NoteEvent | ClickEvent;
 
 export interface Position {
-  /** Quarter notes since the selection start, negative while counting in, not wrapped by the loop. */
+  /**
+   * Quarter notes since the selection start, not wrapped by the loop. Negative while counting
+   * in from the top; while counting in after a pause it stays where the music goes on.
+   */
   raw: number;
   /** Position in the score in quarter notes, wrapped into the selection. */
   absQ: number;
@@ -73,6 +76,36 @@ export function countInFor(m: Measure): ClickEvent[] {
 }
 
 /**
+ * One bar of clicks to go on from `at` (quarters into the selection that starts at bar
+ * `from`): the beats right before it, counted in the bar it falls in.
+ */
+export function countInAt(measures: Measure[], from: number, at: number): ClickEvent[] {
+  const startQ = measures[from].startQ;
+  const q = startQ + at;
+  let mi = from;
+  while (mi + 1 < measures.length && measures[mi + 1].startQ <= q + EPS) mi++;
+  const m = measures[mi];
+  const b = m.beatQ;
+  const n = Math.max(1, Math.round(m.nominal / b));
+  // Where beat 1 of this bar is, also for a pickup.
+  const one = m.startQ - (m.pickup ? m.nominal - m.durQ : 0);
+  const last = Math.ceil((q - one) / b - EPS) - 1;
+  const out: ClickEvent[] = [];
+  for (let k = last - n + 1; k <= last; k++) {
+    const inBar = ((k % n) + n) % n;
+    out.push({
+      kind: "click",
+      t: one + k * b - startQ,
+      g: 0,
+      count: true,
+      accent: inBar === 0,
+      beat: inBar + 1,
+    });
+  }
+  return out;
+}
+
+/**
  * Look-ahead sequencer: a 30 ms timer schedules notes up to 300 ms ahead on the
  * audio clock, so playback stays tight even when drawing stutters.
  */
@@ -94,6 +127,9 @@ export class Transport {
   private countEvents: ClickEvent[] = [];
   private list: PlayEvent[] = [];
   private idx = 0;
+  /** Where this run went on from, and the first of `events` from there. */
+  private at = 0;
+  private skip = 0;
   private base = 0;
   private endQ: number | null = null;
   loopLen = 0;
@@ -110,7 +146,16 @@ export class Transport {
     return this.spq;
   }
 
-  start(score: Score, from: number, to: number, opts: { bpm: number; countIn: boolean }): boolean {
+  /**
+   * Plays bars `from`..`to`. `at` goes on from that many quarters into the selection (after a
+   * pause); then the count-in, if on, clicks while the music waits there.
+   */
+  start(
+    score: Score,
+    from: number,
+    to: number,
+    opts: { bpm: number; countIn: boolean; at?: number },
+  ): boolean {
     const c = resume();
     if (!c) return false;
     this.stop(false);
@@ -139,13 +184,17 @@ export class Transport {
     }
     ev.sort((a, b) => a.t - b.t || b.g - a.g);
     this.events = ev;
-    this.countEvents = opts.countIn ? countInFor(M[from]) : [];
+    const at = opts.at != null && opts.at > EPS && opts.at < this.loopLen - EPS ? opts.at : 0;
+    this.at = at;
+    this.skip = at ? ev.findIndex((e) => e.t >= at - EPS) : 0;
+    if (this.skip < 0) this.skip = ev.length;
+    this.countEvents = !opts.countIn ? [] : at ? countInAt(M, from, at) : countInFor(M[from]);
     this.list = this.countEvents.length ? this.countEvents : this.events;
-    this.idx = 0;
+    this.idx = this.countEvents.length ? 0 : this.skip;
     this.base = 0;
     this.endQ = null;
     this.spq = 60 / opts.bpm;
-    this.anchorQ = this.countEvents.length ? this.countEvents[0].t : 0;
+    this.anchorQ = this.countEvents.length ? this.countEvents[0].t : at;
     this.anchorAudio = c.currentTime + 0.12;
     this.running = true;
     this.pump();
@@ -158,6 +207,14 @@ export class Transport {
     clearTimeout(this.timer);
     silenceScheduled();
     if (notify) this.onStop?.();
+  }
+
+  /** Stops and returns where the music was, as heard, in quarters into the selection, to go on from there. */
+  pause(): number {
+    const p = this.position();
+    this.stop(false);
+    if (!p || p.raw < this.at) return this.at;
+    return p.absQ - this.startQ;
   }
 
   /** Changes tempo without a jump: the current position becomes the new anchor. */
@@ -179,19 +236,26 @@ export class Transport {
     return this.describe(raw);
   }
 
-  /** Builds a position for a raw offset, also used to draw the stopped state. */
+  /** Builds a position for a raw offset. */
   describe(raw: number): Position {
-    const M = this.score!.measures;
-    if (raw < 0) {
+    if (raw < this.at) {
       let beat = 0;
       for (const e of this.countEvents) if (e.t <= raw + EPS) beat = e.beat;
-      return { raw, absQ: this.startQ + raw, countBeat: this.running ? beat : 0, measure: this.from };
+      // From the top the first notes fall in while counting; after a pause they wait where you were.
+      const shown = this.at > 0 ? this.at : raw;
+      const absQ = this.startQ + shown;
+      return { raw: shown, absQ, countBeat: this.running ? beat : 0, measure: this.measureAt(absQ) };
     }
     const absQ =
       this.startQ + (this.loop && this.loopLen > EPS ? raw % this.loopLen : Math.min(raw, this.loopLen));
+    return { raw, absQ, countBeat: 0, measure: this.measureAt(absQ) };
+  }
+
+  private measureAt(absQ: number): number {
+    const M = this.score!.measures;
     let mi = this.from;
     while (mi < this.to && M[mi + 1].startQ <= absQ + EPS) mi++;
-    return { raw, absQ, countBeat: 0, measure: mi };
+    return mi;
   }
 
   private pump = (): void => {
@@ -203,7 +267,7 @@ export class Transport {
       if (!ev) {
         if (this.list === this.countEvents) {
           this.list = this.events;
-          this.idx = 0;
+          this.idx = this.skip;
           continue;
         }
         if (this.loop && this.loopLen > EPS) {

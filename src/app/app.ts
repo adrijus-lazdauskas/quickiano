@@ -47,6 +47,9 @@ const TOGGLES: [string, keyof Settings][] = [
   ["tFingers", "fingering"],
 ];
 
+/** Seconds of falling notes shown before the first one while stopped at the start. */
+const PREROLL_SECONDS = 0.7;
+
 export class App {
   private settings = new SettingsStore();
   private transport = new Transport();
@@ -67,6 +70,8 @@ export class App {
     [139, 92, 255],
   ];
   private preferFlats = false;
+  /** Where playing goes on from while stopped, in quarters into the selection; null is its start. */
+  private cursor: number | null = null;
   private raf = 0;
   private kbSig = "";
   private sheetSig = "";
@@ -89,6 +94,7 @@ export class App {
     };
     this.sheet.onPick = (n) => this.onPick(n);
     this.transport.onStop = () => {
+      this.cursor = null;
       this.paintPlay();
       this.requestFrame();
     };
@@ -209,8 +215,7 @@ export class App {
   private async convert(file: File): Promise<void> {
     this.conv?.abort.abort(); // a new PDF replaces the one in progress
     this.unlockAudio();
-    this.transport.stop(false);
-    this.paintPlay();
+    this.pausePlayback();
     const job = { file, abort: new AbortController(), started: Date.now(), timer: 0 };
     this.conv = job;
     this.lastPdf = file;
@@ -454,6 +459,7 @@ export class App {
   private setRange(a: number, b: number): void {
     const sc = this.score!;
     this.transport.stop(false);
+    this.cursor = null;
     this.paintPlay();
     this.from = a;
     this.to = b;
@@ -503,21 +509,52 @@ export class App {
     this.nowBar = mi;
   }
 
+  /** The selected bar that `absQ` falls in. */
+  private barAt(absQ: number): number {
+    const M = this.score!.measures;
+    let mi = this.from;
+    while (mi < this.to && M[mi + 1].startQ <= absQ + EPS) mi++;
+    return mi;
+  }
+
   /* ---------- playback ---------- */
 
   private togglePlay(): void {
     if (!this.score) return;
     this.unlockAudio();
     if (this.transport.running) {
-      this.transport.stop();
+      this.pausePlayback();
+      this.requestFrame();
       return;
     }
     const st = this.settings.get();
     this.onPick(null);
     this.syncTransport();
-    this.transport.start(this.score, this.from, this.to, { bpm: st.bpm, countIn: st.countIn });
+    this.transport.start(this.score, this.from, this.to, {
+      bpm: st.bpm,
+      countIn: st.countIn,
+      at: this.cursor ?? 0,
+    });
     this.paintPlay();
     this.requestFrame();
+  }
+
+  /** Stops playing but keeps the place, to go on from there. */
+  private pausePlayback(): void {
+    if (this.transport.running) this.cursor = this.transport.pause() || null;
+    this.paintPlay();
+  }
+
+  /** Back to the start of the selected bars; keeps playing if it was. */
+  private restart(): void {
+    const playing = this.transport.running;
+    this.transport.stop(false);
+    this.cursor = null;
+    if (playing) this.togglePlay();
+    else {
+      this.paintPlay();
+      this.requestFrame();
+    }
   }
 
   private syncTransport(): void {
@@ -529,13 +566,11 @@ export class App {
   private paintPlay(): void {
     const b = $("playBtn");
     const on = this.transport.running;
-    b.innerHTML = on ? ICON.stop : ICON.play;
+    b.innerHTML = on ? ICON.pause : ICON.play;
     b.classList.toggle("playing", on);
-    b.setAttribute("aria-label", on ? S.stop : S.play);
-    if (!on) {
-      this.paintNowBar(-1);
-      $("countBadge").hidden = true;
-    }
+    b.setAttribute("aria-label", on ? S.pause : S.play);
+    $<HTMLButtonElement>("restartBtn").disabled = !on && this.cursor == null;
+    if (!on) $("countBadge").hidden = true;
   }
 
   private paintBpm(): void {
@@ -566,15 +601,17 @@ export class App {
     const pos = playing ? this.transport.position() : null;
     const spq = 60 / st.bpm;
     const selStart = sc.measures[this.from].startQ;
-    // Stopped: show the first notes just above the keys.
-    const raw = pos ? pos.raw : -0.7 / spq;
-    const running = !!pos && pos.raw >= 0;
-    const absQ = running ? pos!.absQ : selStart - 1;
-    const active = running ? soundingAt(this.selNotes, pos!.absQ) : [];
+    // Stopped: the place you paused at, or the first notes just above the keys.
+    const raw = pos ? pos.raw : (this.cursor ?? -PREROLL_SECONDS / spq);
+    const running = pos ? pos.raw >= 0 : this.cursor != null && this.cursor >= 0;
+    const absQ = running ? (pos ? pos.absQ : selStart + this.cursor!) : selStart - 1;
+    const active = running ? soundingAt(this.selNotes, absQ) : [];
+    // While counting in after a pause, the notes wait without lighting up.
+    const sounding = playing && !pos?.countBeat;
 
     if (st.view === "falling") {
       this.falling.render(
-        { raw, spq, playing, loop: st.loop },
+        { raw, spq, playing: sounding, loop: st.loop },
         {
           colors: this.colors,
           heard: [st.hearRight, st.hearLeft],
@@ -643,7 +680,7 @@ export class App {
       badge.hidden = false;
       badge.textContent = String(pos.countBeat);
     } else badge.hidden = true;
-    this.paintNowBar(running ? pos!.measure : -1);
+    this.paintNowBar(!running ? -1 : pos ? pos.measure : this.barAt(absQ));
 
     if (playing || (st.view === "falling" && this.falling.animating)) this.requestFrame();
   };
@@ -771,6 +808,7 @@ export class App {
 
   private bindControls(): void {
     $("playBtn").addEventListener("click", () => this.togglePlay());
+    $("restartBtn").addEventListener("click", () => this.restart());
     const bpm = $<HTMLInputElement>("bpm");
     bpm.addEventListener("input", () => {
       const v = +bpm.value;
@@ -884,8 +922,7 @@ export class App {
     // Brand link goes back to the start screen.
     document.querySelector(".brand")!.addEventListener("click", (e) => {
       e.preventDefault();
-      this.transport.stop(false);
-      this.paintPlay();
+      this.pausePlayback();
       void this.paintRecent();
       // Home shows the conversion while one runs, the start screen otherwise.
       this.setState(this.conv ? "converting" : "empty");
@@ -928,6 +965,11 @@ export class App {
         if ((tag === "button" || tag === "a") && tabbing) return;
         e.preventDefault();
         this.togglePlay();
+        return;
+      }
+      if (e.key === "Home") {
+        e.preventDefault();
+        this.restart();
         return;
       }
       if (this.sheet.picked) {

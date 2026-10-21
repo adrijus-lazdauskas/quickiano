@@ -50,7 +50,10 @@ export function renderLayout(root: HTMLElement): void {
   </main>
 
   <footer class="controls">
-    <button type="button" class="play-btn" id="playBtn" aria-label="${S.play}">${ICON.play}</button>
+    <div class="transport">
+      <button type="button" class="play-btn" id="playBtn" aria-label="${S.play}">${ICON.play}</button>
+      <button type="button" class="icon-btn" id="restartBtn" aria-label="${S.restart}" title="${S.restart}" disabled>${ICON.restart}</button>
+    </div>
     <div class="tempo">
       <label for="bpm">${S.tempo}</label>
       <input type="range" id="bpm" min="${BPM_MIN}" max="160" step="2" value="60">

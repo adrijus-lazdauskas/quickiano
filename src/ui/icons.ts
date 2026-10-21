@@ -3,7 +3,8 @@ const svg = (body: string, size = 20) =>
 
 export const ICON = {
   play: `<svg class="icon" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.9-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14Z"/></svg>`,
-  stop: `<svg class="icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>`,
+  pause: `<svg class="icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4.3" height="14" rx="1.4" fill="currentColor"/><rect x="13.7" y="5" width="4.3" height="14" rx="1.4" fill="currentColor"/></svg>`,
+  restart: svg('<path d="M6 5v14"/><path d="M18 6.5v11L10 12z" fill="currentColor"/>', 18),
   open: svg(
     '<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 16v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3"/>',
   ),

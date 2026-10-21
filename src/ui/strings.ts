@@ -84,7 +84,8 @@ export const S = {
     'Quickiano is free and open source. Piano sound: Salamander Grand Piano by Alexander Holm (CC BY 3.0). Sheet music: OpenSheetMusicDisplay. PDF recognition: Audiveris. <a href="https://github.com/adrijus-lazdauskas/quickiano" target="_blank" rel="noopener">GitHub</a>',
 
   play: "Play",
-  stop: "Stop",
+  pause: "Pause",
+  restart: "Back to the start",
   tempo: "Tempo",
   bpm: "BPM",
   ofTarget: (pct: number) => `${pct}%`,
