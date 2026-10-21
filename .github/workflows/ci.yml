@@ -26,6 +26,6 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
-      - run: npm run typecheck
       - run: npm test
+      # Typechecks too: the build script runs tsc before vite.
       - run: npm run build
