@@ -4,7 +4,16 @@ import { computeFingering, type FingerOverrides, tieHead } from "../core/fingeri
 import { isMidi, parseMidi } from "../core/midi";
 import { bytesToScoreText, hashBytes, hashText } from "../core/mxl";
 import { parseMusicXML } from "../core/musicxml";
-import { strikesIn, titleFromFileName, UNTITLED } from "../core/score";
+import {
+  type Pass,
+  passAt,
+  passesFor,
+  playLength,
+  type Strike,
+  strikesFor,
+  titleFromFileName,
+  UNTITLED,
+} from "../core/score";
 import { fullName, keyName, pitchName, soundingSpelling, spellMidi } from "../core/noteNames";
 import type { Hand, Note, Score } from "../core/types";
 import { EPS } from "../core/types";
@@ -64,7 +73,10 @@ export class App {
   private to = 0;
   private anchor: number | null = null;
   private selNotes: Note[] = [];
-  private attacks: [Note[], Note[]] = [[], []];
+  /** The selected bars as they are played, how long that takes, and the key presses per hand. */
+  private passes: Pass[] = [];
+  private playLen = 0;
+  private attacks: [Strike[], Strike[]] = [[], []];
   private colors: [RGB, RGB] = [
     [255, 79, 216],
     [139, 92, 255],
@@ -426,7 +438,14 @@ export class App {
       b.type = "button";
       b.className = "bar k-" + m.kind;
       b.textContent = m.label;
-      b.title = S.barTitle(m.label, S.kind[m.kind]);
+      const marks = [S.barTitle(m.label, S.kind[m.kind])];
+      if (m.repeatStart) marks.push(S.repeatFrom);
+      if (m.ending) marks.push(S.volta(m.ending));
+      if (m.repeatTimes) marks.push(S.repeatBack(m.repeatTimes));
+      b.title = marks.join(" · ");
+      b.classList.toggle("rep-start", m.repeatStart);
+      b.classList.toggle("rep-end", m.repeatTimes > 0);
+      if (m.ending) b.dataset.volta = m.ending.join(",") + ".";
       b.addEventListener("click", () => this.pickBar(i));
       bars.appendChild(b);
     });
@@ -468,8 +487,13 @@ export class App {
     this.sheet.setSelection(a, b);
     this.falling.setSelection(sc, a, b);
     this.selNotes = sc.notes.filter((n) => n.m >= a && n.m <= b);
-    const strikes = strikesIn(sc, a, b);
-    this.attacks = [0, 1].map((h) => strikes.filter((n) => n.staff === h && !n.grace)) as [Note[], Note[]];
+    this.passes = passesFor(sc, a, b);
+    this.playLen = playLength(sc, this.passes);
+    const strikes = strikesFor(sc, this.passes);
+    this.attacks = [0, 1].map((h) => strikes.filter((s) => s.n.staff === h && !s.n.grace)) as [
+      Strike[],
+      Strike[],
+    ];
     this.onPick(null);
     this.paintTimeline();
     saveRange(this.song!.id, [a, b]);
@@ -508,14 +532,6 @@ export class App {
     bars[this.nowBar]?.classList.remove("now");
     if (mi >= 0) bars[mi]?.classList.add("now");
     this.nowBar = mi;
-  }
-
-  /** The selected bar that `absQ` falls in. */
-  private barAt(absQ: number): number {
-    const M = this.score!.measures;
-    let mi = this.from;
-    while (mi < this.to && M[mi + 1].startQ <= absQ + EPS) mi++;
-    return mi;
   }
 
   /* ---------- playback ---------- */
@@ -560,12 +576,9 @@ export class App {
 
   /** Scrolling the falling notes while stopped moves the place that playing goes on from. */
   private scrollBy(dq: number): void {
-    const sc = this.score;
-    if (!sc || this.transport.running) return;
-    const M = sc.measures;
-    const end = M[this.to].startQ + M[this.to].durQ - M[this.from].startQ;
+    if (!this.score || this.transport.running) return;
     const top = -PREROLL_SECONDS / (60 / this.settings.get().bpm);
-    const at = Math.min(end, Math.max(top, (this.cursor ?? top) + dq));
+    const at = Math.min(this.playLen, Math.max(top, (this.cursor ?? top) + dq));
     this.cursor = at <= top + EPS ? null : at;
     this.paintPlay();
     this.requestFrame();
@@ -617,11 +630,20 @@ export class App {
     const playing = this.transport.running;
     const pos = playing ? this.transport.position() : null;
     const spq = 60 / st.bpm;
-    const selStart = sc.measures[this.from].startQ;
     // Stopped: the place you paused at, or the first notes just above the keys.
     const raw = pos ? pos.raw : (this.cursor ?? -PREROLL_SECONDS / spq);
-    const running = pos ? pos.raw >= 0 : this.cursor != null && this.cursor >= 0;
-    const absQ = running ? (pos ? pos.absQ : selStart + this.cursor!) : selStart - 1;
+    // Where the music is: as played (what comes next) and as written (what sounds, which bar).
+    let played = -1;
+    let absQ = 0;
+    let bar = -1;
+    if (pos && pos.raw >= 0) ({ played, absQ, measure: bar } = pos);
+    else if (!pos && this.cursor != null && this.cursor >= 0) {
+      const p = passAt(this.passes, this.cursor);
+      played = this.cursor;
+      absQ = sc.measures[p.m].startQ + this.cursor - p.at;
+      bar = p.m;
+    }
+    const running = bar >= 0;
     const active = running ? soundingAt(this.selNotes, absQ) : [];
     // While counting in after a pause, the notes wait without lighting up.
     const sounding = playing && !pos?.countBeat;
@@ -647,12 +669,12 @@ export class App {
     const upcoming = new Map<number, KeyMark>();
     for (const h of [0, 1] as Hand[]) {
       const list = this.attacks[h];
-      let i = list.findIndex((n) => n.q > absQ + EPS);
+      let i = list.findIndex((s) => s.t > played + EPS);
       if (i < 0 && st.loop && running) i = 0;
       if (i < 0) continue;
-      const q = list[i].q;
-      for (let j = i; j < list.length && Math.abs(list[j].q - q) < EPS; j++) {
-        upcoming.set(list[j].sound, this.mark(list[j], st));
+      const t = list[i].t;
+      for (let j = i; j < list.length && Math.abs(list[j].t - t) < EPS; j++) {
+        upcoming.set(list[j].n.sound, this.mark(list[j].n, st));
       }
     }
     const activeMap = new Map<number, KeyMark>();
@@ -697,7 +719,7 @@ export class App {
       badge.hidden = false;
       badge.textContent = String(pos.countBeat);
     } else badge.hidden = true;
-    this.paintNowBar(!running ? -1 : pos ? pos.measure : this.barAt(absQ));
+    this.paintNowBar(bar);
 
     if (playing || (st.view === "falling" && this.falling.animating)) this.requestFrame();
   };

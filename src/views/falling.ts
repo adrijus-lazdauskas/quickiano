@@ -1,4 +1,4 @@
-import { strikesIn } from "../core/score";
+import { type Pass, passesFor, playLength, type Strike, strikesFor } from "../core/score";
 import type { Hand, Note, Score } from "../core/types";
 import { EPS } from "../core/types";
 import { type RGB, luminance, rgba, shade } from "./color";
@@ -16,7 +16,7 @@ export interface FallingStyle {
 }
 
 export interface FallingTime {
-  /** Quarter notes since the selection start (negative while counting in). */
+  /** Quarter notes since the selection start as played (negative while counting in). */
   raw: number;
   /** Seconds per quarter note. */
   spq: number;
@@ -24,7 +24,7 @@ export interface FallingTime {
   loop: boolean;
 }
 
-/** Notes currently under the hit line, keyed by note id and loop pass. */
+/** Notes currently under the hit line, keyed by note, time it is played and loop pass. */
 export interface HitNote {
   n: Note;
   key: string;
@@ -43,10 +43,8 @@ export class FallingView {
   private ctx: CanvasRenderingContext2D;
   private layout: KeyLayout | null = null;
   private score: Score | null = null;
-  private notes: Note[] = [];
-  private from = 0;
-  private to = 0;
-  private startQ = 0;
+  private passes: Pass[] = [];
+  private strikes: Strike[] = [];
   private loopLen = 0;
   private dpr = 1;
   private w = 0;
@@ -102,13 +100,10 @@ export class FallingView {
 
   setSelection(score: Score, from: number, to: number): void {
     this.score = score;
-    this.from = from;
-    this.to = to;
-    const M = score.measures;
-    this.startQ = M[from].startQ;
-    this.loopLen = M[to].startQ + M[to].durQ - this.startQ;
-    // Key presses only: tie continuations are drawn as part of their head, unless the head is before the selection.
-    this.notes = strikesIn(score, from, to);
+    this.passes = passesFor(score, from, to);
+    this.loopLen = playLength(score, this.passes);
+    // Key presses as played: tie continuations are drawn as part of their head, unless that wasn't just played.
+    this.strikes = strikesFor(score, this.passes);
     this.lit.clear();
     this.fx.clear();
   }
@@ -158,31 +153,30 @@ export class FallingView {
     this.pxPerQ = pxPerQ;
     const yOf = (rel: number) => H - (rel - t.raw) * pxPerQ;
     const loopOn = t.loop && this.loopLen > EPS;
-    const passes: number[] = [];
+    const loops: number[] = [];
     if (loopOn) {
       const k0 = Math.max(0, Math.floor(t.raw / this.loopLen));
-      passes.push(k0, k0 + 1);
-      if (t.raw - k0 * this.loopLen < 0.25) passes.unshift(k0 - 1);
-    } else passes.push(0);
+      loops.push(k0, k0 + 1);
+      if (t.raw - k0 * this.loopLen < 0.25) loops.unshift(k0 - 1);
+    } else loops.push(0);
 
-    // bar lines with numbers
+    // bar lines with numbers, in the order the bars are played
     g.font = "600 11px Inter Variable, system-ui, sans-serif";
     g.textAlign = "left";
     g.textBaseline = "bottom";
     const M = this.score.measures;
-    for (const k of passes) {
+    for (const k of loops) {
       if (k < 0) continue;
       const off = k * this.loopLen;
-      for (let mi = this.from; mi <= this.to + 1; mi++) {
-        const q = mi <= this.to ? M[mi].startQ - this.startQ : this.loopLen;
-        const y = yOf(q + off);
+      for (let i = 0; i <= this.passes.length; i++) {
+        const p = this.passes[i];
+        const y = yOf((p ? p.at : this.loopLen) + off);
         if (y < -2 || y > H + 1) continue;
-        const end = mi > this.to;
-        g.fillStyle = end ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.07)";
+        g.fillStyle = p ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.16)";
         g.fillRect(0, Math.round(y), W, 1);
-        if (!end) {
+        if (p) {
           g.fillStyle = "rgba(255,255,255,0.32)";
-          g.fillText(M[mi].label, 6, y - 3);
+          g.fillText(M[p.m].label, 6, y - 3);
         }
       }
     }
@@ -191,20 +185,20 @@ export class FallingView {
     const hits: HitNote[] = [];
     const nowLit = new Set<string>();
     const colorFor = (hand: Hand) => st.colors[hand];
-    for (const k of passes) {
+    for (const k of loops) {
       if (k < 0) continue;
       const off = k * this.loopLen;
-      for (const n of this.notes) {
+      for (const s of this.strikes) {
+        const n = s.n;
         const geo = L.get(n.sound);
         if (!geo) continue;
-        let a = n.q - this.startQ + off;
+        let a = s.t + off;
         let b = a + Math.max(n.remain, 0);
         if (n.grace) {
           const sec = 0.06 * (n.graceRank || 1);
           a -= sec / t.spq;
           b = a + 0.09 / t.spq;
         }
-        if (n.cont) a = Math.max(a, off);
         b = Math.min(b, off + this.loopLen);
         const yb = yOf(a);
         const yt = yOf(b);
@@ -270,7 +264,7 @@ export class FallingView {
         }
 
         if (on) {
-          const key = n.id + "@" + k;
+          const key = n.id + "@" + s.t + "@" + k;
           nowLit.add(key);
           hits.push({ n, key });
           if (st.effects) {

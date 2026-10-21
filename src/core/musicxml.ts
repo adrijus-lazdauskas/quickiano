@@ -38,6 +38,9 @@ interface PartMeasure {
   beatType: number;
   fifths: number;
   mode: string;
+  repeatStart: boolean;
+  repeatTimes: number;
+  ending: number[] | null;
 }
 
 const isStep = (s: string): s is Step => s in STEP_PC;
@@ -52,11 +55,14 @@ function parsePart(partEl: Element, pi: number, staffMap: Record<string, Hand>):
   let fifths = 0;
   let mode = "major";
   let order = 0;
+  /** Numbers of the volta that is open across bars. */
+  let ending: number[] | null = null;
   const out: PartMeasure[] = [];
   for (const me of kids(partEl, "measure")) {
     let pos = 0;
     let maxPos = 0;
     let lastOnset = 0;
+    let endingEnds = false;
     const rec: PartMeasure = {
       number: me.getAttribute("number") || "",
       implicit: me.getAttribute("implicit") === "yes",
@@ -71,6 +77,9 @@ function parsePart(partEl: Element, pi: number, staffMap: Record<string, Hand>):
       beatType,
       fifths,
       mode,
+      repeatStart: false,
+      repeatTimes: 0,
+      ending,
     };
     for (const el of me.children) {
       switch (el.nodeName) {
@@ -140,9 +149,23 @@ function parsePart(partEl: Element, pi: number, staffMap: Record<string, Hand>):
         case "sound":
           if (el.getAttribute("tempo") && !rec.tempo) rec.tempo = parseFloat(el.getAttribute("tempo")!) || 0;
           break;
-        case "barline":
+        case "barline": {
           if ((el.getAttribute("location") || "right") === "right") rec.barEnd = kidText(el, "bar-style");
+          const rep = kid(el, "repeat");
+          if (rep?.getAttribute("direction") === "forward") rec.repeatStart = true;
+          if (rep?.getAttribute("direction") === "backward") {
+            const times = parseInt(rep.getAttribute("times") || "", 10) || 2;
+            rec.repeatTimes = times >= 2 ? times : 0;
+          }
+          const end = kid(el, "ending");
+          if (end) {
+            const nums = (end.getAttribute("number") || "").split(/\D+/).filter(Boolean).map(Number);
+            if (end.getAttribute("type") === "start") ending = nums.length ? nums : [1];
+            else endingEnds = true;
+            rec.ending = ending ?? (nums.length ? nums : null);
+          }
           break;
+        }
         case "note": {
           const grace = !!kid(el, "grace");
           const chord = !!kid(el, "chord");
@@ -214,6 +237,7 @@ function parsePart(partEl: Element, pi: number, staffMap: Record<string, Hand>):
       }
     }
     Object.assign(rec, { len: maxPos, beats, beatType, fifths, mode });
+    if (endingEnds) ending = null;
     out.push(rec);
   }
   return out;
@@ -312,6 +336,10 @@ export function parseMusicXML(text: string): Score {
       barEnd: r0.barEnd,
       rehearsal: r0.rehearsal,
       change: r0.change,
+      // Repeat signs usually sit in every part; one of them is enough.
+      repeatStart: recs.some((r) => r.repeatStart),
+      repeatTimes: Math.max(...recs.map((r) => r.repeatTimes)),
+      ending: recs.find((r) => r.ending)?.ending ?? null,
     });
     for (const r of recs) {
       if (!tempo && r.tempo) tempo = r.tempo;

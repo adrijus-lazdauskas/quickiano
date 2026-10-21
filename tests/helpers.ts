@@ -52,3 +52,12 @@ export const backup = (dur: number) => `<backup><duration>${dur}</duration></bac
 /** An 8va/8vb line mark: "down" starts 8va, "up" starts 8vb, then "stop" or "continue". */
 export const octaveShift = (type: "down" | "up" | "stop" | "continue", staff: 1 | 2 = 1, size = 8) =>
   `<direction><direction-type><octave-shift type="${type}" size="${size}"/></direction-type><staff>${staff}</staff></direction>`;
+
+/** Barlines with repeat signs and voltas, as notation apps write them. */
+export const repeatForward = () => '<barline location="left"><repeat direction="forward"/></barline>';
+export const repeatBack = (times?: number) =>
+  `<barline location="right"><bar-style>light-heavy</bar-style><repeat direction="backward"${times ? ` times="${times}"` : ""}/></barline>`;
+export const voltaStart = (number: string) =>
+  `<barline location="left"><ending number="${number}" type="start"/></barline>`;
+export const voltaStop = (number: string, repeat = false) =>
+  `<barline location="right"><ending number="${number}" type="stop"/>${repeat ? '<repeat direction="backward"/>' : ""}</barline>`;

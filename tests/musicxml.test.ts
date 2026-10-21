@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { parseMusicXML } from "../src/core/musicxml";
-import { backup, note, octaveShift, pianoXML, rest } from "./helpers";
+import {
+  backup,
+  note,
+  octaveShift,
+  pianoXML,
+  repeatBack,
+  repeatForward,
+  rest,
+  voltaStart,
+  voltaStop,
+} from "./helpers";
 
 describe("parseMusicXML", () => {
   it("reads title, composer, hands and the measure grid", () => {
@@ -169,6 +179,28 @@ describe("parseMusicXML", () => {
     const s = parseMusicXML(xml);
     expect(s.title).toBe("Comptine d\u2019un autre été");
     expect(s.composer).toBe("Yann Tiersen");
+  });
+
+  it("reads repeat signs and voltas, also a volta over two bars", () => {
+    const bar = (i: number, marks: string) =>
+      `<measure number="${i}">${marks.replace("NOTES", note("C5", 16, 1) + backup(16) + rest(16, 2))}</measure>`;
+    const s = parseMusicXML(
+      pianoXML(
+        bar(1, repeatForward() + "NOTES") +
+          bar(2, voltaStart("1, 2") + "NOTES") +
+          bar(3, "NOTES" + voltaStop("1, 2", true).replace("<repeat", '<repeat times="3"')) +
+          bar(4, voltaStart("3") + "NOTES" + voltaStop("3")) +
+          bar(5, "NOTES" + repeatBack()),
+      ),
+    );
+    const marks = s.measures.map((m) => [m.repeatStart, m.repeatTimes, m.ending]);
+    expect(marks).toEqual([
+      [true, 0, null],
+      [false, 0, [1, 2]],
+      [false, 3, [1, 2]],
+      [false, 0, [3]],
+      [false, 2, null],
+    ]);
   });
 
   it("rejects files that are not MusicXML", () => {

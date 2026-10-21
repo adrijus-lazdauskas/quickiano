@@ -331,6 +331,25 @@ a {
   color: #0b0b12;
   box-shadow: 0 0 14px -2px var(--rh);
 }
+/* Repeat signs and voltas, so it is clear why some bars play twice. */
+.bar.rep-start {
+  border-left: 3px double var(--text-3);
+}
+.bar.rep-end {
+  border-right: 3px double var(--text-3);
+}
+.bar[data-volta] {
+  position: relative;
+}
+.bar[data-volta]::after {
+  content: attr(data-volta);
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 0.55rem;
+  line-height: 1;
+  opacity: 0.8;
+}
 .timeline-foot {
   display: flex;
   align-items: center;

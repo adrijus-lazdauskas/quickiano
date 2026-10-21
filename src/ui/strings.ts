@@ -105,6 +105,9 @@ export const S = {
   barHint: "Pick bars: click the first bar, then the last",
   barAnchor: (label: string) => `Bar ${label} set · now click the last bar (same bar again = only this one)`,
   barTitle: (label: string, kind: string) => `Bar ${label} · ${kind}`,
+  repeatFrom: "a repeat starts here",
+  volta: (numbers: number[]) => `${numbers.join(", ")}. ending`,
+  repeatBack: (times: number) => (times > 2 ? `repeat, ${times} times in all` : "repeat"),
   kind: {
     "lh-only": "left hand only",
     calm: "quarters and longer",

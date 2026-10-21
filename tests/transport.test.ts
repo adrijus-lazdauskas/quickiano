@@ -18,6 +18,9 @@ const bar = (over: Partial<Measure>): Measure => ({
   rehearsal: "",
   change: false,
   kind: "calm",
+  repeatStart: false,
+  repeatTimes: 0,
+  ending: null,
   ...over,
 });
 
@@ -52,10 +55,8 @@ describe("countInFor", () => {
 });
 
 describe("countInAt", () => {
-  const bars = [bar({}), bar({ idx: 1, label: "2", startQ: 4 }), bar({ idx: 2, label: "3", startQ: 8 })];
-
   it("counts the beats right before a pause on a beat, with that bar's numbers", () => {
-    const c = countInAt(bars, 0, 6); // bar 2, beat 3
+    const c = countInAt(bar({}), 4, 6); // the bar played from 4, paused on its beat 3
     expect(c.map((e) => e.t)).toEqual([2, 3, 4, 5]);
     expect(c.map((e) => e.beat)).toEqual([3, 4, 1, 2]);
     expect(c.map((e) => e.accent)).toEqual([false, false, true, false]);
@@ -63,18 +64,15 @@ describe("countInAt", () => {
   });
 
   it("puts the last click on the beat a pause between beats belongs to", () => {
-    const c = countInAt(bars, 1, 2.5); // selection from bar 2, so the pause is at 6.5
+    const c = countInAt(bar({}), 0, 2.5);
     expect(c.map((e) => e.t)).toEqual([-1, 0, 1, 2]);
     expect(c.map((e) => e.beat)).toEqual([4, 1, 2, 3]);
   });
 
   it("keeps the beats of a piece with a pickup", () => {
     const eighths = { beats: 3, beatType: 8, nominal: 1.5, beatQ: 0.5 };
-    const waltz = [
-      bar({ ...eighths, pickup: true, durQ: 0.5 }),
-      bar({ ...eighths, idx: 1, startQ: 0.5, durQ: 1.5 }),
-    ];
-    const c = countInAt(waltz, 0, 1); // bar 1, second eighth
+    // The bar after an eighth pickup, played from 0.5, paused on its second eighth.
+    const c = countInAt(bar({ ...eighths, durQ: 1.5 }), 0.5, 1);
     expect(c.map((e) => e.t)).toEqual([-0.5, 0, 0.5]);
     expect(c.map((e) => e.beat)).toEqual([2, 3, 1]);
   });

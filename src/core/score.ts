@@ -15,6 +15,9 @@ export type MeasureDraft = Pick<
   | "barEnd"
   | "rehearsal"
   | "change"
+  | "repeatStart"
+  | "repeatTimes"
+  | "ending"
 >;
 
 /** Title used when a file names none. */
@@ -173,12 +176,106 @@ export function attacks(score: Score): Note[] {
   return score.notes.filter((n) => !n.cont);
 }
 
+/** One bar as it is played: which bar, and where it starts, in quarters into the selection. */
+export interface Pass {
+  m: number;
+  at: number;
+}
+
 /**
- * Notes struck in bars `from`..`to`: every key press that starts there, plus the first
- * tied continuation of a note held over from before, which then sounds for the rest.
+ * Bars `from`..`to` in the order they are played: repeats taken and the right volta for each
+ * time through. A repeat that starts before the selection goes back to its first bar.
  */
-export function strikesIn(score: Score, from: number, to: number): Note[] {
-  return score.notes.filter((n) => n.m >= from && n.m <= to && (!n.cont || n.prev!.m < from));
+export function playOrder(M: Measure[], from: number, to: number): number[] {
+  const order: number[] = [];
+  const taken = new Map<number, number>();
+  let start = from;
+  let time = 1;
+  for (let i = from, guard = 0; i <= to && guard < 20000; guard++) {
+    const m = M[i];
+    // A repeated section begins at a forward repeat, or after the last volta of the one before.
+    if (i > start && (m.repeatStart || (!m.ending && M[i - 1].ending))) {
+      start = i;
+      time = 1;
+    }
+    if (m.ending && !m.ending.includes(time)) {
+      i++;
+      continue;
+    }
+    order.push(i);
+    if (m.repeatTimes) {
+      const played = taken.get(i) ?? 1;
+      if (played < m.repeatTimes) {
+        taken.set(i, played + 1);
+        time++;
+        i = start;
+        continue;
+      }
+      taken.delete(i);
+      start = i + 1;
+      time = 1;
+    }
+    i++;
+  }
+  return order;
+}
+
+/** The selected bars as they are played, each with where it starts. */
+export function passesFor(score: Score, from: number, to: number): Pass[] {
+  let at = 0;
+  return playOrder(score.measures, from, to).map((m) => {
+    const p = { m, at };
+    at += score.measures[m].durQ;
+    return p;
+  });
+}
+
+/** How long the passes take to play, in quarters. */
+export function playLength(score: Score, passes: Pass[]): number {
+  const last = passes[passes.length - 1];
+  return last ? last.at + score.measures[last.m].durQ : 0;
+}
+
+/** The pass playing `t` quarters into the selection; the first one before it starts. */
+export function passAt(passes: Pass[], t: number): Pass {
+  let lo = 0;
+  let hi = passes.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (passes[mid].at <= t + EPS) lo = mid;
+    else hi = mid - 1;
+  }
+  return passes[lo];
+}
+
+/** A note as it is played: `t` quarters into the selection. */
+export interface Strike {
+  n: Note;
+  t: number;
+}
+
+/**
+ * Key presses as the passes play: every note that starts one, and a tied note whose
+ * neighbour before it was not just played, which then sounds for the rest of its tie.
+ */
+export function strikesFor(score: Score, passes: Pass[]): Strike[] {
+  const bars = new Set(passes.map((p) => p.m));
+  const byBar = new Map<number, Note[]>();
+  for (const n of score.notes) {
+    if (!bars.has(n.m)) continue;
+    const list = byBar.get(n.m) ?? [];
+    list.push(n);
+    byBar.set(n.m, list);
+  }
+  const out: Strike[] = [];
+  passes.forEach((p, i) => {
+    const before = i > 0 ? passes[i - 1].m : -1;
+    for (const n of byBar.get(p.m) ?? []) {
+      if (n.cont && (n.prev!.m === n.m || n.prev!.m === before)) continue;
+      out.push({ n, t: p.at + n.rel });
+    }
+  });
+  return out;
 }
 
 /** End of the measure range in quarter notes. */

@@ -25,7 +25,7 @@ YouTube piano tutorials are great until you need bar 23 at half speed, with the 
 - 🎼 **Sheet music** for the same bars, so you learn to read the notes while you play.
 - ✋ **Finger numbers** on every note and right under the keys, suggested automatically for both hands. Fingerings written in the score are kept, and you can change any finger with one key press.
 - 🐢 **Any tempo** from a crawl to full speed, changeable while it plays.
-- 🔁 **Loop any bars**: pick a part with one click or choose your own first and last bar.
+- 🔁 **Loop any bars**: pick a part with one click or choose your own first and last bar. Repeats and 1st and 2nd endings play as written.
 - ⏸️ **Pause anywhere** and scroll ahead through the falling notes to see what's coming; play goes on from there, with a count-in to find the beat again.
 - 👂 **Hands separately**: mute the right or the left hand and play that part yourself.
 - ⏱️ **Count-in and click** so you start on the beat.
@@ -95,7 +95,7 @@ The live site is built by Cloudflare Pages from `main`. To host it somewhere els
 
 Plain TypeScript and Vite, no UI framework. The interesting parts:
 
-- [`src/core/musicxml.ts`](src/core/musicxml.ts) reads MusicXML into one timeline of notes in quarter notes, with ties, grace notes, pickups and 8va lines. [`src/core/midi.ts`](src/core/midi.ts) does the same for MIDI.
+- [`src/core/musicxml.ts`](src/core/musicxml.ts) reads MusicXML into one timeline of notes in quarter notes, with ties, grace notes, pickups, 8va lines, repeats and voltas. [`src/core/midi.ts`](src/core/midi.ts) does the same for MIDI.
 - [`src/core/fingering.ts`](src/core/fingering.ts) suggests fingers with dynamic programming over a finger-span comfort table, for each hand. Fingers from the score and your own changes steer the notes around them.
 - [`src/player/transport.ts`](src/player/transport.ts) schedules notes ahead on the Web Audio clock, so timing stays tight even when the screen is busy.
 - [`src/views/falling.ts`](src/views/falling.ts) and [`src/views/effects.ts`](src/views/effects.ts) draw the falling notes and particles on a canvas; [`src/views/sheet.ts`](src/views/sheet.ts) renders the score with OpenSheetMusicDisplay and adds its own finger and note-name layer.

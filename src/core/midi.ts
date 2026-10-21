@@ -103,6 +103,9 @@ export function parseMidi(buf: ArrayBuffer, fileName: string): Score {
       change:
         measures.length > 0 &&
         (s.beats !== measures.at(-1)!.beats || s.beatType !== measures.at(-1)!.beatType),
+      repeatStart: false,
+      repeatTimes: 0,
+      ending: null,
     });
     q += len;
   }

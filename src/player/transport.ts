@@ -1,7 +1,7 @@
 import { getContext, outputLatency, resume, silenceScheduled } from "../audio/engine";
 import { click } from "../audio/metronome";
 import { playNote } from "../audio/piano";
-import { strikesIn } from "../core/score";
+import { type Pass, passAt, passesFor, playLength, strikesFor } from "../core/score";
 import type { Measure, Note, Score } from "../core/types";
 import { EPS } from "../core/types";
 
@@ -30,11 +30,14 @@ type PlayEvent = NoteEvent | ClickEvent;
 
 export interface Position {
   /**
-   * Quarter notes since the selection start, not wrapped by the loop. Negative while counting
-   * in from the top; while counting in after a pause it stays where the music goes on.
+   * Quarter notes since the selection start as played, repeats included, not wrapped by the
+   * loop. Negative while counting in from the top; while counting in after a pause it stays
+   * where the music goes on.
    */
   raw: number;
-  /** Position in the score in quarter notes, wrapped into the selection. */
+  /** `raw` wrapped into one time through the selection. */
+  played: number;
+  /** Position in the score (as written) in quarter notes. */
   absQ: number;
   /** Count-in beat (1, 2, …) or 0 once the music runs. */
   countBeat: number;
@@ -76,26 +79,21 @@ export function countInFor(m: Measure): ClickEvent[] {
 }
 
 /**
- * One bar of clicks to go on from `at` (quarters into the selection that starts at bar
- * `from`): the beats right before it, counted in the bar it falls in.
+ * One bar of clicks to go on from `at` (quarters into the selection, as played), in bar `m`
+ * that is played from `barAt`: the beats right before `at`, counted as in that bar.
  */
-export function countInAt(measures: Measure[], from: number, at: number): ClickEvent[] {
-  const startQ = measures[from].startQ;
-  const q = startQ + at;
-  let mi = from;
-  while (mi + 1 < measures.length && measures[mi + 1].startQ <= q + EPS) mi++;
-  const m = measures[mi];
+export function countInAt(m: Measure, barAt: number, at: number): ClickEvent[] {
   const b = m.beatQ;
   const n = Math.max(1, Math.round(m.nominal / b));
   // Where beat 1 of this bar is, also for a pickup.
-  const one = m.startQ - (m.pickup ? m.nominal - m.durQ : 0);
-  const last = Math.ceil((q - one) / b - EPS) - 1;
+  const one = barAt - (m.pickup ? m.nominal - m.durQ : 0);
+  const last = Math.ceil((at - one) / b - EPS) - 1;
   const out: ClickEvent[] = [];
   for (let k = last - n + 1; k <= last; k++) {
     const inBar = ((k % n) + n) % n;
     out.push({
       kind: "click",
-      t: one + k * b - startQ,
+      t: one + k * b,
       g: 0,
       count: true,
       accent: inBar === 0,
@@ -107,7 +105,8 @@ export function countInAt(measures: Measure[], from: number, at: number): ClickE
 
 /**
  * Look-ahead sequencer: a 30 ms timer schedules notes up to 300 ms ahead on the
- * audio clock, so playback stays tight even when drawing stutters.
+ * audio clock, so playback stays tight even when drawing stutters. Bars play in the
+ * order of their repeats and voltas.
  */
 export class Transport {
   running = false;
@@ -116,9 +115,7 @@ export class Transport {
   onStop: (() => void) | null = null;
 
   private score: Score | null = null;
-  private from = 0;
-  private to = 0;
-  private startQ = 0;
+  private passes: Pass[] = [];
   private timer = 0;
   private anchorAudio = 0;
   private anchorQ = 0;
@@ -161,25 +158,16 @@ export class Transport {
     this.stop(false);
     const M = score.measures;
     this.score = score;
-    this.from = from;
-    this.to = to;
-    this.startQ = M[from].startQ;
-    this.loopLen = M[to].startQ + M[to].durQ - this.startQ;
+    this.passes = passesFor(score, from, to);
+    this.loopLen = playLength(score, this.passes);
     const ev: PlayEvent[] = [];
     // A tie from before the selection still sounds from its first bar inside it.
-    for (const n of strikesIn(score, from, to)) {
-      ev.push({ kind: "note", t: n.q - this.startQ, g: n.grace ? n.graceRank || 1 : 0, n, dur: n.remain });
+    for (const { n, t } of strikesFor(score, this.passes)) {
+      ev.push({ kind: "note", t, g: n.grace ? n.graceRank || 1 : 0, n, dur: n.remain });
     }
-    for (let mi = from; mi <= to; mi++) {
-      for (const ck of clicksFor(M[mi])) {
-        ev.push({
-          kind: "click",
-          t: M[mi].startQ - this.startQ + ck.t,
-          g: 0,
-          accent: ck.accent,
-          count: false,
-          beat: 0,
-        });
+    for (const p of this.passes) {
+      for (const ck of clicksFor(M[p.m])) {
+        ev.push({ kind: "click", t: p.at + ck.t, g: 0, accent: ck.accent, count: false, beat: 0 });
       }
     }
     ev.sort((a, b) => a.t - b.t || b.g - a.g);
@@ -188,7 +176,8 @@ export class Transport {
     this.at = at;
     this.skip = at ? ev.findIndex((e) => e.t >= at - EPS) : 0;
     if (this.skip < 0) this.skip = ev.length;
-    this.countEvents = !opts.countIn ? [] : at ? countInAt(M, from, at) : countInFor(M[from]);
+    const bar = passAt(this.passes, at);
+    this.countEvents = !opts.countIn ? [] : at ? countInAt(M[bar.m], bar.at, at) : countInFor(M[bar.m]);
     this.list = this.countEvents.length ? this.countEvents : this.events;
     this.idx = this.countEvents.length ? 0 : this.skip;
     this.base = 0;
@@ -214,7 +203,7 @@ export class Transport {
     const p = this.position();
     this.stop(false);
     if (!p || p.raw < this.at) return this.at;
-    return p.absQ - this.startQ;
+    return p.played;
   }
 
   /** Changes tempo without a jump: the current position becomes the new anchor. */
@@ -238,24 +227,18 @@ export class Transport {
 
   /** Builds a position for a raw offset. */
   describe(raw: number): Position {
+    let countBeat = 0;
     if (raw < this.at) {
-      let beat = 0;
-      for (const e of this.countEvents) if (e.t <= raw + EPS) beat = e.beat;
+      for (const e of this.countEvents) if (e.t <= raw + EPS) countBeat = e.beat;
+      if (!this.running) countBeat = 0;
       // From the top the first notes fall in while counting; after a pause they wait where you were.
-      const shown = this.at > 0 ? this.at : raw;
-      const absQ = this.startQ + shown;
-      return { raw: shown, absQ, countBeat: this.running ? beat : 0, measure: this.measureAt(absQ) };
+      raw = this.at > 0 ? this.at : raw;
     }
-    const absQ =
-      this.startQ + (this.loop && this.loopLen > EPS ? raw % this.loopLen : Math.min(raw, this.loopLen));
-    return { raw, absQ, countBeat: 0, measure: this.measureAt(absQ) };
-  }
-
-  private measureAt(absQ: number): number {
-    const M = this.score!.measures;
-    let mi = this.from;
-    while (mi < this.to && M[mi + 1].startQ <= absQ + EPS) mi++;
-    return mi;
+    const played =
+      raw < 0 ? raw : this.loop && this.loopLen > EPS ? raw % this.loopLen : Math.min(raw, this.loopLen);
+    const p = passAt(this.passes, played);
+    const absQ = this.score!.measures[p.m].startQ + played - p.at;
+    return { raw, played, absQ, countBeat, measure: p.m };
   }
 
   private pump = (): void => {

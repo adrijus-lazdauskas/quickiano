@@ -71,6 +71,12 @@ export interface Measure {
   rehearsal: string;
   change: boolean;
   kind: MeasureKind;
+  /** A forward repeat sign at the start of the bar. */
+  repeatStart: boolean;
+  /** How often the section before a backward repeat at the end of the bar is played, 0 without one. */
+  repeatTimes: number;
+  /** Volta numbers when the bar is in a 1st, 2nd, … ending. */
+  ending: number[] | null;
 }
 
 export type Section = [from: number, to: number];
