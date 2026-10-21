@@ -30,7 +30,7 @@ import {
   saveSong,
   type SongRecord,
 } from "./library";
-import { ConvertError, convertPdf, converterAvailable } from "./converter";
+import { ConvertError, convertPdf, converterAvailable, type ConvertResult } from "./converter";
 import { PALETTES, type Settings, SettingsStore } from "./settings";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -224,38 +224,49 @@ export class App {
     };
     tick();
     job.timer = window.setInterval(tick, 1000);
+    let res: ConvertResult;
     try {
-      const res = await convertPdf(file, job.abort.signal, (stage, ahead) => {
+      res = await convertPdf(file, job.abort.signal, (stage, ahead) => {
         $("cvStage").textContent = stage === "queued" ? S.pdfQueued(ahead ?? 0) : S.pdfStage[stage];
       });
-      if (this.conv !== job) return;
-      const waiting = this.state() === "converting";
-      this.finishConvert(job);
-      const open = async () => {
-        await this.openData(res.data, file.name);
-        this.toast(S.convertDone(res.pages, res.movements));
-      };
-      if (waiting) await open();
-      else
-        this.toast(S.readyToast(name), false, {
-          label: S.open,
-          run: () => open().catch((e) => this.toast(S.loadFailed + " " + ((e as Error).message || ""), true)),
-        });
     } catch (e) {
-      if (this.conv !== job || job.abort.signal.aborted) return;
-      this.finishConvert(job);
-      const msg = e instanceof ConvertError ? e.message : S.loadFailed + " " + ((e as Error).message || "");
-      $("cvTitle").textContent = S.cvErrorTitle;
-      $("cvErrorText").textContent = msg;
-      $("cvRunning").hidden = true;
-      $("cvFailed").hidden = false;
-      document.querySelector(".cv-card")!.classList.add("failed");
-      if (this.state() !== "converting") {
-        this.toast(msg, true, { label: S.cvRetry, run: () => void this.convert(file) });
+      if (this.conv === job && !job.abort.signal.aborted) {
+        this.finishConvert(job);
+        this.convertFailed(
+          file,
+          e instanceof ConvertError ? e.message : S.loadFailed + " " + ((e as Error).message || ""),
+        );
       }
+      return;
     } finally {
-      // Also when a newer PDF replaced this one and it left early above.
+      // Also when a newer PDF replaced this one.
       clearInterval(job.timer);
+    }
+    if (this.conv !== job) return;
+    const waiting = this.state() === "converting";
+    this.finishConvert(job);
+    const open = async () => {
+      await this.openData(res.data, file.name);
+      this.toast(S.convertDone(res.pages, res.movements));
+    };
+    const failed = (e: unknown) => S.loadFailed + " " + ((e as Error).message || "");
+    if (waiting) await open().catch((e) => this.convertFailed(file, failed(e)));
+    else
+      this.toast(S.readyToast(name), false, {
+        label: S.open,
+        run: () => open().catch((e) => this.toast(failed(e), true)),
+      });
+  }
+
+  /** Shows why a conversion failed: on the waiting screen, or as a toast if you went elsewhere. */
+  private convertFailed(file: File, msg: string): void {
+    $("cvTitle").textContent = S.cvErrorTitle;
+    $("cvErrorText").textContent = msg;
+    $("cvRunning").hidden = true;
+    $("cvFailed").hidden = false;
+    document.querySelector(".cv-card")!.classList.add("failed");
+    if (this.state() !== "converting") {
+      this.toast(msg, true, { label: S.cvRetry, run: () => void this.convert(file) });
     }
   }
 
