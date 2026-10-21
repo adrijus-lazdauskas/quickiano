@@ -609,14 +609,10 @@ export class App {
       for (const n of this.selNotes)
         if (!ghost.has(n.sound) || n.staff === 0) ghost.set(n.sound, this.colors[n.staff]);
     }
-    const sig =
-      [...activeMap.keys()].join(",") +
-      "|" +
-      [...upcoming.keys()].join(",") +
-      "|" +
-      (picked?.id ?? "") +
-      "|" +
-      ghost.size;
+    // Fingers and hands too: a key struck again with another finger needs a new badge.
+    const marks = (m: Map<number, KeyMark>) =>
+      [...m].map(([k, v]) => k + ":" + v.hand + ":" + v.finger + ":" + v.name).join(",");
+    const sig = marks(activeMap) + "|" + marks(upcoming) + "|" + (picked?.id ?? "") + "|" + ghost.size;
     if (sig !== this.kbSig) {
       this.kbSig = sig;
       this.keyboard.draw({
